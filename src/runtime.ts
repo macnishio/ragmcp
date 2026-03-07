@@ -1,4 +1,3 @@
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import cors from "cors";
@@ -10,7 +9,7 @@ import { createRagRouter } from "./routes/rag.js";
 import { RagService } from "./services/rag/service.js";
 
 export function createHttpApp(ragService = new RagService()) {
-  const app = createMcpExpressApp({ host: "127.0.0.1" });
+  const app = express();
 
   app.disable("x-powered-by");
   app.use(cors());

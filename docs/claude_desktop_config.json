@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "ai-agent": {
+      "command": "node",
+      "args": [
+        "/Users/nishio/generic-mcp-template-github/scripts/mcp-server.mjs"
+      ],
+      "env": {
+        "ANTHROPIC_API_KEY": "<YOUR_ANTHROPIC_API_KEY>",
+        "GITHUB_TOKEN": "<YOUR_GITHUB_TOKEN>",
+        "AI_AGENT_WORKDIR": "/Users/nishio/generic-mcp-template",
+        "NO_COLOR": "1",
+        "FORCE_COLOR": "0"
+      }
+    },
+    "ragmcp": {
+      "command": "/Users/nishio/ragmcp/build/sea/ragmcp-server-darwin-arm64",
+      "args": ["--stdio"]
+    }
+  },
+  "preferences": {
+    "chromeExtensionEnabled": true,
+    "localAgentModeTrustedFolders": [],
+    "coworkScheduledTasksEnabled": true,
+    "sidebarMode": "code",
+    "coworkWebSearchEnabled": true
+  }
+}
