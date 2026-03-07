@@ -63,6 +63,16 @@ export class RagDatabase {
         content,
         tokenize = 'unicode61'
       );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS chunks_trigram USING fts5(
+        chunk_id UNINDEXED,
+        source_id UNINDEXED,
+        document_id UNINDEXED,
+        rel_path,
+        heading,
+        content,
+        tokenize = 'trigram'
+      );
     `);
   }
 }

@@ -129,6 +129,7 @@ export class RagService {
 
     this.db.exec("BEGIN");
     try {
+      this.db.prepare("DELETE FROM chunks_trigram WHERE source_id = ?").run(sourceId);
       this.db.prepare("DELETE FROM chunks_fts WHERE source_id = ?").run(sourceId);
       this.db.prepare("DELETE FROM chunks WHERE source_id = ?").run(sourceId);
       this.db.prepare("DELETE FROM documents WHERE source_id = ?").run(sourceId);
@@ -260,6 +261,7 @@ export class RagService {
 
     this.db.exec("BEGIN");
     try {
+      this.db.prepare("DELETE FROM chunks_trigram WHERE source_id = ?").run(sourceId);
       this.db.prepare("DELETE FROM chunks_fts WHERE source_id = ?").run(sourceId);
       this.db.prepare("DELETE FROM chunks WHERE source_id = ?").run(sourceId);
       this.db.prepare("DELETE FROM documents WHERE source_id = ?").run(sourceId);
@@ -276,6 +278,11 @@ export class RagService {
       `);
       const insertChunkFts = this.db.prepare(`
         INSERT INTO chunks_fts (
+          chunk_id, source_id, document_id, rel_path, heading, content
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      const insertChunkTrigram = this.db.prepare(`
+        INSERT INTO chunks_trigram (
           chunk_id, source_id, document_id, rel_path, heading, content
         ) VALUES (?, ?, ?, ?, ?, ?)
       `);
@@ -306,6 +313,14 @@ export class RagService {
           chunk.created_at,
         );
         insertChunkFts.run(
+          chunk.id,
+          chunk.source_id,
+          chunk.document_id,
+          chunk.rel_path,
+          chunk.heading,
+          chunk.content,
+        );
+        insertChunkTrigram.run(
           chunk.id,
           chunk.source_id,
           chunk.document_id,
@@ -377,6 +392,34 @@ export class RagService {
       }
     }
 
+    // Fallback 1: trigram FTS (good for CJK / Japanese)
+    if (rows.length === 0) {
+      const trigramQuery = query.trim();
+      if (trigramQuery.length >= 3) {
+        try {
+          rows = this.db
+            .prepare(`
+              SELECT
+                chunk_id,
+                document_id,
+                rel_path,
+                heading,
+                content,
+                bm25(chunks_trigram, 8.0, 5.0, 1.0) AS rank
+              FROM chunks_trigram
+              WHERE chunks_trigram MATCH ?
+                AND source_id = ?
+              ORDER BY rank ASC
+              LIMIT ?
+            `)
+            .all(`"${trigramQuery.replaceAll('"', '""')}"`, sourceId, effectiveLimit) as typeof rows;
+        } catch {
+          rows = [];
+        }
+      }
+    }
+
+    // Fallback 2: LIKE (works for any substring including short queries)
     if (rows.length === 0) {
       rows = this.db
         .prepare(`

@@ -232,6 +232,19 @@ class RagSourceService {
     return RagAnswer.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  Future<Map<String, dynamic>> fetchDocument(String sourceId, String documentId) async {
+    final response = await _client.get(
+      _uri("/rag/sources/$sourceId/documents/$documentId"),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    _throwIfNeeded(response);
+
+    final payload = json.decode(response.body);
+    return Map<String, dynamic>.from(payload["data"] as Map);
+  }
+
   Map<String, String> get _jsonHeaders => const {
         "Content-Type": "application/json",
       };

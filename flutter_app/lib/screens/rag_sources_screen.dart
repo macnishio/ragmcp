@@ -271,6 +271,41 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
     });
   }
 
+  Future<void> _showDocument(String sourceId, String documentId, String relPath) async {
+    try {
+      final doc = await _service.fetchDocument(sourceId, documentId);
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(relPath, style: const TextStyle(fontSize: 14)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                doc["content"]?.toString() ?? "",
+                style: const TextStyle(fontSize: 13, fontFamily: "monospace"),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load document: $e")),
+        );
+      }
+    }
+  }
+
   Future<void> _search() async {
     final source = _selectedSource;
     if (source == null || _searchController.text.trim().isEmpty) {
@@ -562,7 +597,22 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
               ..._searchResults.map(
                 (result) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(result.relPath),
+                  title: InkWell(
+                    onTap: _selectedSource == null
+                        ? null
+                        : () => _showDocument(
+                              _selectedSource!.sourceId,
+                              result.documentId,
+                              result.relPath,
+                            ),
+                    child: Text(
+                      result.relPath,
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
                   subtitle: Text(result.excerpt),
                   trailing: Text("score ${result.score}"),
                 ),
@@ -607,8 +657,28 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
             else ...[
               SelectableText(_answer!.answer),
               const SizedBox(height: 12),
+              const Text("Citations:", style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
               ..._answer!.citations.map(
-                (citation) => Text("- ${citation.relPath}${citation.heading == null ? "" : " (${citation.heading})"}"),
+                (citation) => InkWell(
+                  onTap: _selectedSource == null
+                      ? null
+                      : () => _showDocument(
+                            _selectedSource!.sourceId,
+                            citation.chunkId.split(":").first,
+                            citation.relPath,
+                          ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      "- ${citation.relPath}${citation.heading == null ? "" : " (${citation.heading})"}",
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ],
