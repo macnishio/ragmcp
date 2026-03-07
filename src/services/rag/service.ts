@@ -11,6 +11,8 @@ import type {
   RagHealth,
   RagSource,
   SearchResult,
+  SyncFrequency,
+  SyncSchedule,
   UploadedFilePayload,
 } from "../../types/rag.js";
 import { buildChunks } from "./chunking.js";
@@ -27,6 +29,20 @@ interface SourceRow {
   last_synced_at: string | null;
   document_count: number;
   chunk_count: number;
+}
+
+interface ScheduleRow {
+  id: string;
+  source_id: string;
+  frequency: SyncFrequency;
+  timezone: string;
+  enabled: number;
+  next_run_at: string;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  last_run_error: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface DocumentRow {
@@ -521,6 +537,82 @@ export class RagService {
     };
   }
 
+  // --- Schedule methods ---
+
+  getSchedule(sourceId: string): SyncSchedule | null {
+    const row = this.db
+      .prepare("SELECT * FROM sync_schedules WHERE source_id = ? LIMIT 1")
+      .get(sourceId) as ScheduleRow | undefined;
+    return row ? mapSchedule(row) : null;
+  }
+
+  listSchedules(): SyncSchedule[] {
+    const rows = this.db
+      .prepare("SELECT * FROM sync_schedules ORDER BY next_run_at ASC")
+      .all() as unknown as ScheduleRow[];
+    return rows.map(mapSchedule);
+  }
+
+  upsertSchedule(
+    sourceId: string,
+    frequency: SyncFrequency,
+    timezone: string,
+    enabled: boolean,
+  ): SyncSchedule {
+    this.requireSource(sourceId);
+    const now = new Date().toISOString();
+    const nextRunAt = computeNextRun(frequency, timezone);
+    const existing = this.getSchedule(sourceId);
+
+    if (existing) {
+      this.db
+        .prepare(`
+          UPDATE sync_schedules
+          SET frequency = ?, timezone = ?, enabled = ?, next_run_at = ?, updated_at = ?
+          WHERE source_id = ?
+        `)
+        .run(frequency, timezone, enabled ? 1 : 0, nextRunAt, now, sourceId);
+    } else {
+      const id = `sched_${randomUUID()}`;
+      this.db
+        .prepare(`
+          INSERT INTO sync_schedules (id, source_id, frequency, timezone, enabled, next_run_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(id, sourceId, frequency, timezone, enabled ? 1 : 0, nextRunAt, now, now);
+    }
+
+    return this.getSchedule(sourceId)!;
+  }
+
+  deleteSchedule(sourceId: string): void {
+    this.db.prepare("DELETE FROM sync_schedules WHERE source_id = ?").run(sourceId);
+  }
+
+  getDueSchedules(): SyncSchedule[] {
+    const now = new Date().toISOString();
+    const rows = this.db
+      .prepare("SELECT * FROM sync_schedules WHERE enabled = 1 AND next_run_at <= ?")
+      .all(now) as unknown as ScheduleRow[];
+    return rows.map(mapSchedule);
+  }
+
+  markScheduleRun(sourceId: string, status: "success" | "error", error?: string): void {
+    const schedule = this.getSchedule(sourceId);
+    if (!schedule) return;
+
+    const now = new Date().toISOString();
+    const nextRunAt = computeNextRun(schedule.frequency, schedule.timezone);
+
+    this.db
+      .prepare(`
+        UPDATE sync_schedules
+        SET last_run_at = ?, last_run_status = ?, last_run_error = ?, next_run_at = ?, updated_at = ?
+        WHERE source_id = ?
+      `)
+      .run(now, status, error ?? null, nextRunAt, now, sourceId);
+  }
+
   private mapSource(row: SourceRow): RagSource {
     return {
       sourceId: row.id,
@@ -561,6 +653,96 @@ export class RagService {
     const row = this.db.prepare(statement).get() as { count: number } | undefined;
     return Number(row?.count ?? 0);
   }
+}
+
+function mapSchedule(row: ScheduleRow): SyncSchedule {
+  return {
+    id: row.id,
+    sourceId: row.source_id,
+    frequency: row.frequency,
+    timezone: row.timezone,
+    enabled: row.enabled === 1,
+    nextRunAt: row.next_run_at,
+    lastRunAt: row.last_run_at,
+    lastRunStatus: row.last_run_status as SyncSchedule["lastRunStatus"],
+    lastRunError: row.last_run_error,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function computeNextRun(frequency: SyncFrequency, timezone: string, from?: Date): string {
+  const now = from ?? new Date();
+
+  if (frequency === "every_6h") {
+    return new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString();
+  }
+  if (frequency === "every_12h") {
+    return new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+  }
+
+  // For daily/weekly/monthly, compute next target time in the given timezone
+  const targetHour = 3; // 3 AM
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = Object.fromEntries(
+    formatter.formatToParts(now).map((p) => [p.type, p.value]),
+  );
+  const tzYear = Number(parts.year);
+  const tzMonth = Number(parts.month);
+  const tzDay = Number(parts.day);
+  const tzHour = Number(parts.hour);
+
+  // Create a date string in the timezone, then find UTC equivalent
+  const toUtc = (y: number, m: number, d: number, h: number): Date => {
+    // Use a temporary date to find the offset
+    const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00`;
+    // Approximate: create date and adjust
+    const approx = new Date(dateStr + "Z");
+    const formatted = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "2-digit",
+      hour12: false,
+    }).format(approx);
+    const offsetHours = Number(formatted) - h;
+    return new Date(approx.getTime() - offsetHours * 60 * 60 * 1000);
+  };
+
+  if (frequency === "daily_3am") {
+    // Next 3 AM in timezone
+    let nextDay = tzDay;
+    if (tzHour >= targetHour) nextDay += 1;
+    return toUtc(tzYear, tzMonth, nextDay, targetHour).toISOString();
+  }
+
+  if (frequency === "weekly") {
+    // Next Monday 3 AM
+    const dayOfWeek = now.getDay(); // 0=Sun
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : dayOfWeek === 1 && tzHour < targetHour ? 0 : 8 - dayOfWeek;
+    return toUtc(tzYear, tzMonth, tzDay + daysUntilMonday, targetHour).toISOString();
+  }
+
+  if (frequency === "monthly") {
+    // 1st of next month 3 AM
+    let nextMonth = tzMonth + 1;
+    let nextYear = tzYear;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    return toUtc(nextYear, nextMonth, 1, targetHour).toISOString();
+  }
+
+  // Fallback: 24h from now
+  return new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 }
 
 function toFtsQuery(query: string): string {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../models/rag_source.dart';
+import '../models/sync_schedule.dart';
 
 class RagSourceService {
   final String baseUrl;
@@ -230,6 +231,70 @@ class RagSourceService {
 
     final payload = json.decode(response.body);
     return RagAnswer.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
+  }
+
+  Future<List<SyncSchedule>> listSchedules() async {
+    final response = await _client.get(_uri("/rag/schedules")).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    _throwIfNeeded(response);
+
+    final payload = json.decode(response.body);
+    final rawList = payload["data"];
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map((item) => SyncSchedule.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  Future<SyncSchedule?> getSchedule(String sourceId) async {
+    final response = await _client.get(
+      _uri("/rag/sources/$sourceId/schedule"),
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    if (response.statusCode == 404) return null;
+    _throwIfNeeded(response);
+
+    final payload = json.decode(response.body);
+    return SyncSchedule.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
+  }
+
+  Future<SyncSchedule> upsertSchedule(
+    String sourceId,
+    String frequency,
+    String timezone,
+    bool enabled,
+  ) async {
+    final response = await _client.put(
+      _uri("/rag/sources/$sourceId/schedule"),
+      headers: _jsonHeaders,
+      body: json.encode({
+        "frequency": frequency,
+        "timezone": timezone,
+        "enabled": enabled,
+      }),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    _throwIfNeeded(response);
+
+    final payload = json.decode(response.body);
+    return SyncSchedule.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
+  }
+
+  Future<void> deleteScheduleForSource(String sourceId) async {
+    final response = await _client.delete(
+      _uri("/rag/sources/$sourceId/schedule"),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    _throwIfNeeded(response);
   }
 
   Future<Map<String, dynamic>> fetchDocument(String sourceId, String documentId) async {

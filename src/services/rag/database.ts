@@ -64,6 +64,24 @@ export class RagDatabase {
         tokenize = 'unicode61'
       );
 
+      CREATE TABLE IF NOT EXISTS sync_schedules (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL UNIQUE,
+        frequency TEXT NOT NULL,
+        timezone TEXT NOT NULL DEFAULT 'Asia/Tokyo',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        next_run_at TEXT NOT NULL,
+        last_run_at TEXT,
+        last_run_status TEXT,
+        last_run_error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(source_id) REFERENCES sources(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_sync_schedules_source_id ON sync_schedules(source_id);
+      CREATE INDEX IF NOT EXISTS idx_sync_schedules_next_run ON sync_schedules(next_run_at);
+
       CREATE VIRTUAL TABLE IF NOT EXISTS chunks_trigram USING fts5(
         chunk_id UNINDEXED,
         source_id UNINDEXED,

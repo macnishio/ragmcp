@@ -6,6 +6,7 @@ import express, { type Request, type Response } from "express";
 import { createMcpServer } from "./mcp/create-server.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createRagRouter } from "./routes/rag.js";
+import { SyncScheduler } from "./services/rag/scheduler.js";
 import { RagService } from "./services/rag/service.js";
 
 export function createHttpApp(ragService = new RagService()) {
@@ -57,6 +58,8 @@ export function createHttpApp(ragService = new RagService()) {
 
 export async function startHttpServer(): Promise<void> {
   const ragService = new RagService();
+  const scheduler = new SyncScheduler(ragService);
+  scheduler.start();
   const app = createHttpApp(ragService);
   const host = process.env.HOST ?? "127.0.0.1";
   const port = Number.parseInt(process.env.PORT ?? "3001", 10);
@@ -73,6 +76,8 @@ export async function startHttpServer(): Promise<void> {
 
 export async function startStdioServer(): Promise<void> {
   const ragService = new RagService();
+  const scheduler = new SyncScheduler(ragService);
+  scheduler.start();
   await createMcpServer(ragService).connect(new StdioServerTransport());
 }
 

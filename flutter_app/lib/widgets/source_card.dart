@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/rag_source.dart';
+import '../models/sync_schedule.dart';
 import '../utils/date_formatters.dart';
 
 class SourceCard extends StatelessWidget {
@@ -12,6 +13,8 @@ class SourceCard extends StatelessWidget {
   final VoidCallback onSync;
   final VoidCallback onRename;
   final VoidCallback onDelete;
+  final VoidCallback onSchedule;
+  final SyncSchedule? schedule;
 
   const SourceCard({
     super.key,
@@ -23,6 +26,8 @@ class SourceCard extends StatelessWidget {
     required this.onSync,
     required this.onRename,
     required this.onDelete,
+    required this.onSchedule,
+    this.schedule,
   });
 
   @override
@@ -92,6 +97,36 @@ class SourceCard extends StatelessWidget {
                   Text("updated: ${formatIsoDate(source.updatedAt)}"),
                 ],
               ),
+              if (schedule != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 16,
+                      color: schedule!.enabled
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      "${schedule!.frequencyLabel}${schedule!.enabled ? "" : " (paused)"}",
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: schedule!.enabled
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Next: ${formatIsoDate(schedule!.nextRunAt)}",
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -111,6 +146,11 @@ class SourceCard extends StatelessWidget {
                     onPressed: onSync,
                     icon: const Icon(Icons.sync),
                     label: const Text("Sync"),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onSchedule,
+                    icon: Icon(schedule != null ? Icons.schedule : Icons.schedule_outlined),
+                    label: const Text("Schedule"),
                   ),
                 ],
               ),

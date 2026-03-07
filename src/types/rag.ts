@@ -40,6 +40,22 @@ export interface AnswerResponse {
   }>;
 }
 
+export type SyncFrequency = "daily_3am" | "every_6h" | "every_12h" | "weekly" | "monthly";
+
+export interface SyncSchedule {
+  id: string;
+  sourceId: string;
+  frequency: SyncFrequency;
+  timezone: string;
+  enabled: boolean;
+  nextRunAt: string;
+  lastRunAt: string | null;
+  lastRunStatus: "success" | "error" | null;
+  lastRunError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RagHealth {
   appDataDir: string;
   databasePath: string;

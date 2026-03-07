@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 
 import '../models/app_config.dart';
 import '../models/rag_source.dart';
+import '../models/sync_schedule.dart';
 import '../services/rag_source_service.dart';
+import '../widgets/schedule_dialog.dart';
 import '../widgets/source_card.dart';
 
 class RagSourcesScreen extends StatefulWidget {
@@ -29,6 +31,7 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
   bool _busy = false;
   String? _error;
   List<RagSource> _sources = const [];
+  Map<String, SyncSchedule> _schedules = {};
   RagSource? _selectedSource;
   List<RagSearchResult> _searchResults = const [];
   RagAnswer? _answer;
@@ -78,11 +81,18 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
 
     try {
       final sources = await _service.fetchSources();
+      List<SyncSchedule> schedules = [];
+      try {
+        schedules = await _service.listSchedules();
+      } catch (_) {
+        // Schedule endpoint may not be available on older servers
+      }
       if (!mounted) {
         return;
       }
       setState(() {
         _sources = sources;
+        _schedules = {for (final s in schedules) s.sourceId: s};
         if (_selectedSource != null) {
           RagSource? selected;
           for (final item in sources) {
@@ -259,6 +269,30 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
       await _service.deleteSource(source.sourceId);
       if (_selectedSource?.sourceId == source.sourceId) {
         _selectedSource = null;
+      }
+      await _refresh();
+    });
+  }
+
+  Future<void> _openScheduleDialog(RagSource source) async {
+    final existing = _schedules[source.sourceId];
+    final result = await showDialog<ScheduleDialogResult>(
+      context: context,
+      builder: (context) => ScheduleDialog(existing: existing),
+    );
+
+    if (result == null) return;
+
+    await _runBusy(() async {
+      if (result.deleted) {
+        await _service.deleteScheduleForSource(source.sourceId);
+      } else {
+        await _service.upsertSchedule(
+          source.sourceId,
+          result.frequency!,
+          result.timezone!,
+          result.enabled!,
+        );
       }
       await _refresh();
     });
@@ -511,6 +545,8 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
                   onSync: _busy ? () {} : () => _sync(source),
                   onRename: _busy ? () {} : () => _renameSource(source),
                   onDelete: _busy ? () {} : () => _deleteSource(source),
+                  onSchedule: _busy ? () {} : () => _openScheduleDialog(source),
+                  schedule: _schedules[source.sourceId],
                 ),
               ),
             ),

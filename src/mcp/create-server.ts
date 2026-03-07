@@ -251,6 +251,59 @@ export function createMcpServer(ragService: RagService): McpServer {
     },
   );
 
+  server.registerTool(
+    "register_sync_schedule",
+    {
+      title: "Register Sync Schedule",
+      description: "Create or update a scheduled sync for a local RAG source.",
+      inputSchema: z.object({
+        sourceId: z.string().min(1).describe("Source identifier."),
+        frequency: z.enum(["daily_3am", "every_6h", "every_12h", "weekly", "monthly"]).describe("Sync frequency."),
+        timezone: z.string().default("Asia/Tokyo").describe("IANA timezone name."),
+        enabled: z.boolean().default(true).describe("Whether the schedule is active."),
+      }),
+    },
+    async ({
+      sourceId,
+      frequency,
+      timezone,
+      enabled,
+    }: {
+      sourceId: string;
+      frequency: "daily_3am" | "every_6h" | "every_12h" | "weekly" | "monthly";
+      timezone: string;
+      enabled: boolean;
+    }): Promise<CallToolResult> => {
+      const schedule = ragService.upsertSchedule(sourceId, frequency, timezone, enabled);
+      return toToolResult(schedule);
+    },
+  );
+
+  server.registerTool(
+    "list_sync_schedules",
+    {
+      title: "List Sync Schedules",
+      description: "List all scheduled syncs for local RAG sources.",
+      inputSchema: z.object({}),
+    },
+    async (): Promise<CallToolResult> => toToolResult({ schedules: ragService.listSchedules() }),
+  );
+
+  server.registerTool(
+    "delete_sync_schedule",
+    {
+      title: "Delete Sync Schedule",
+      description: "Delete a scheduled sync for a local RAG source.",
+      inputSchema: z.object({
+        sourceId: z.string().min(1).describe("Source identifier."),
+      }),
+    },
+    async ({ sourceId }: { sourceId: string }): Promise<CallToolResult> => {
+      ragService.deleteSchedule(sourceId);
+      return toToolResult({ deleted: true, sourceId });
+    },
+  );
+
   return server;
 }
 

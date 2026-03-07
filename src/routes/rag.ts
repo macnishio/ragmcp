@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import type { RagService } from "../services/rag/service.js";
-import type { UploadedFilePayload } from "../types/rag.js";
+import type { SyncFrequency, UploadedFilePayload } from "../types/rag.js";
 
 export function createRagRouter(ragService: RagService): Router {
   const router = Router();
@@ -153,6 +153,53 @@ export function createRagRouter(ragService: RagService): Router {
         success: true,
         data: document,
       });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  // --- Schedule endpoints ---
+
+  router.get("/schedules", (_req, res) => {
+    res.json({ success: true, data: ragService.listSchedules() });
+  });
+
+  router.get("/sources/:sourceId/schedule", (req, res) => {
+    try {
+      const schedule = ragService.getSchedule(req.params.sourceId);
+      if (!schedule) {
+        res.status(404).json({ success: false, error: "No schedule found" });
+        return;
+      }
+      res.json({ success: true, data: schedule });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.put("/sources/:sourceId/schedule", (req, res) => {
+    try {
+      const frequency = String(req.body?.frequency ?? "") as SyncFrequency;
+      const timezone = String(req.body?.timezone ?? "Asia/Tokyo");
+      const enabled = req.body?.enabled !== false;
+
+      const validFrequencies = ["daily_3am", "every_6h", "every_12h", "weekly", "monthly"];
+      if (!validFrequencies.includes(frequency)) {
+        res.status(400).json({ success: false, error: `Invalid frequency. Must be one of: ${validFrequencies.join(", ")}` });
+        return;
+      }
+
+      const schedule = ragService.upsertSchedule(req.params.sourceId, frequency, timezone, enabled);
+      res.json({ success: true, data: schedule });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.delete("/sources/:sourceId/schedule", (req, res) => {
+    try {
+      ragService.deleteSchedule(req.params.sourceId);
+      res.json({ success: true, data: { deleted: true } });
     } catch (error) {
       sendError(res, error);
     }
