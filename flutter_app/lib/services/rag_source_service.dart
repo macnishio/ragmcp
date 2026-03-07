@@ -100,16 +100,32 @@ class RagSourceService {
   }) async {
     final filePayloads = <Map<String, String>>[];
     for (final file in files) {
-      final bytes = await file.readAsBytes();
-      var fileName = file.uri.pathSegments.isEmpty ? file.path : file.uri.pathSegments.last;
-      if (basePath != null && file.path.startsWith(basePath)) {
-        fileName = file.path.substring(basePath.length).replaceFirst(RegExp(r"^[\\\\/]+"), "");
+      // Google Drive仮想ファイルとサポート外の拡張子を除外
+      if (_isUnsupportedFile(file)) {
+        continue;
       }
-      filePayloads.add({
-        "name": fileName,
-        "content": base64Encode(bytes),
-        "encoding": "base64",
-      });
+      
+      try {
+        final bytes = await file.readAsBytes();
+        var fileName = file.uri.pathSegments.isEmpty ? file.path : file.uri.pathSegments.last;
+        if (basePath != null && file.path.startsWith(basePath)) {
+          fileName = file.path.substring(basePath.length).replaceFirst(RegExp(r"^[\\\\/]+"), "");
+        }
+        filePayloads.add({
+          "name": fileName,
+          "content": base64Encode(bytes),
+          "encoding": "base64",
+        });
+      } catch (e) {
+        // ファイル読み込みエラーをスキップ
+        final fileName = file.uri.pathSegments.last;
+        if (e.toString().contains('FileSystemException')) {
+          print('Skipping unsupported file ${fileName}: Google Drive仮想ファイルまたはアクセス不可ファイル');
+        } else {
+          print('Skipping file ${fileName}: $e');
+        }
+        continue;
+      }
     }
 
     final response = await _client.post(
@@ -200,5 +216,31 @@ class RagSourceService {
       return;
     }
     throw HttpException("HTTP ${response.statusCode}: ${response.body}");
+  }
+
+  // サポート外のファイルをチェック
+  bool _isUnsupportedFile(File file) {
+    final fileName = file.path.toLowerCase();
+    final unsupportedExtensions = [
+      '.gsheet', '.gdoc', '.gslides', '.gdraw', '.gform', '.gsite',
+      '.lnk', '.tmp', '.temp', '.cache', '.log',
+      '.exe', '.dll', '.sys', '.bat', '.cmd', '.ps1',
+      '.msi', '.deb', '.rpm', '.dmg', '.app',
+    ];
+    
+    // Google Drive仮想ファイルをチェック
+    if (fileName.contains('google drive') || 
+        fileName.startsWith('g:\\') ||
+        unsupportedExtensions.any((ext) => fileName.endsWith(ext))) {
+      return true;
+    }
+    
+    // 隠しファイルをチェック
+    final fileNameOnly = file.uri.pathSegments.last;
+    if (fileNameOnly.startsWith('.')) {
+      return true;
+    }
+    
+    return false;
   }
 }
