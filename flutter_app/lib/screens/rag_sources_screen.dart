@@ -323,11 +323,52 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
                 ),
               ),
             ),
+          if (_sources.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _buildSourceSelector(theme),
+          ],
           const SizedBox(height: 20),
           _buildSearchSection(theme),
           const SizedBox(height: 20),
           _buildAnswerSection(theme),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSourceSelector(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.library_books, color: theme.colorScheme.primary),
+            const SizedBox(width: 12),
+            Text("Search / Ask target:", style: theme.textTheme.titleSmall),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedSource?.sourceId,
+                hint: const Text("Select a source"),
+                items: _sources
+                    .map((s) => DropdownMenuItem(
+                          value: s.sourceId,
+                          child: Text(s.name),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _selectedSource = _sources.firstWhere((s) => s.sourceId == value);
+                    _searchResults = const [];
+                    _answer = null;
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
