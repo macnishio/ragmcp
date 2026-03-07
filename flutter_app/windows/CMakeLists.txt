@@ -106,3 +106,11 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# Bundle the ragmcp SEA server binary if it exists.
+set(RAGMCP_SERVER_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/../ragmcp-server-win32-x64.exe")
+if(EXISTS "${RAGMCP_SERVER_BINARY}")
+  install(FILES "${RAGMCP_SERVER_BINARY}"
+    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+    COMPONENT Runtime)
+endif()

@@ -126,3 +126,11 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Bundle the ragmcp SEA server binary if it exists.
+set(RAGMCP_SERVER_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/../ragmcp-server-linux-x64")
+if(EXISTS "${RAGMCP_SERVER_BINARY}")
+  install(PROGRAMS "${RAGMCP_SERVER_BINARY}"
+    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+    COMPONENT Runtime)
+endif()

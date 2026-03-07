@@ -57,6 +57,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - run: npm run sea:build
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -64,6 +71,11 @@ jobs:
         run: flutter pub get
       - working-directory: flutter_app
         run: flutter build macos --release
+      - name: Bundle SEA server into macOS app
+        run: |
+          APP_DIR="flutter_app/build/macos/Build/Products/Release/flutter_app.app/Contents/Resources"
+          cp build/sea/ragmcp-server-darwin-arm64 "$APP_DIR/"
+          chmod +x "$APP_DIR/ragmcp-server-darwin-arm64"
       - working-directory: flutter_app
         run: ditto -c -k build/macos/Build/Products/Release macos-release.zip
       - uses: actions/upload-artifact@v4
@@ -75,6 +87,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - run: npm run sea:build
+      - name: Copy SEA binary for Flutter bundle
+        run: cp build/sea/ragmcp-server-linux-x64 flutter_app/ragmcp-server-linux-x64
       - run: sudo apt-get update
       - run: sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
       - uses: subosito/flutter-action@v2
@@ -95,6 +116,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - run: npm run sea:build
+      - name: Copy SEA binary for Flutter bundle
+        run: copy build\sea\ragmcp-server-win32-x64.exe flutter_app\ragmcp-server-win32-x64.exe
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

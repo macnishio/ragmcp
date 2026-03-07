@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../main.dart' show serverProcessService;
 import '../models/app_config.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -18,11 +19,13 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _serverUrlController;
+  late bool _useExternal;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _useExternal = widget.initialConfig.useExternalServer;
     _serverUrlController = TextEditingController(
       text: widget.initialConfig.serverUrl,
     );
@@ -33,6 +36,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialConfig.serverUrl != widget.initialConfig.serverUrl) {
       _serverUrlController.text = widget.initialConfig.serverUrl;
+    }
+    if (oldWidget.initialConfig.useExternalServer != widget.initialConfig.useExternalServer) {
+      _useExternal = widget.initialConfig.useExternalServer;
     }
   }
 
@@ -46,12 +52,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _saving = true);
     final config = widget.initialConfig.copyWith(
       serverUrl: _serverUrlController.text.trim(),
+      useExternalServer: _useExternal,
     );
 
     await widget.onSaved(config);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Settings saved")),
@@ -61,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final embedded = serverProcessService.isRunning;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -72,25 +78,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
+        if (embedded && !_useExternal)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Embedded server running",
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text("URL: ${serverProcessService.serverUrl}"),
+                  Text("Port: ${serverProcessService.port}"),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Local server URL",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                SwitchListTile(
+                  title: const Text("Use external server"),
+                  subtitle: const Text("Connect to a manually started server"),
+                  value: _useExternal,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (v) => setState(() => _useExternal = v),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _serverUrlController,
-                  decoration: const InputDecoration(
-                    hintText: "http://127.0.0.1:3001",
+                if (_useExternal) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    "Server URL",
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _serverUrlController,
+                    decoration: const InputDecoration(hintText: "http://127.0.0.1:3001"),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _saving ? null : _save,
