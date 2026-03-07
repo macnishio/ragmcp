@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../models/app_config.dart';
@@ -112,20 +109,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12),
                   if (_loading)
                     const LinearProgressIndicator()
-                  else if (_error != null) ...[
+                  else if (_error != null)
                     Text(
                       _error!,
                       style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          "On mobile, configure your PC's server URL in Settings.",
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
-                  ]
+                    )
                   else if (_health != null)
                     Wrap(
                       spacing: 12,

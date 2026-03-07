@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../main.dart' show serverProcessService;
@@ -66,8 +63,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -83,36 +78,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        if (_isMobile)
-          Card(
-            color: theme.colorScheme.secondaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.phone_android, color: theme.colorScheme.onSecondaryContainer),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          "Mobile device",
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "On mobile, an external ragmcp server is required. "
-                    "Start the server on your PC and enter its URL below.\n\n"
-                    "Example: http://192.168.1.10:3001",
-                  ),
-                ],
-              ),
-            ),
-          ),
         if (embedded && !_useExternal)
           Card(
             child: Padding(
@@ -144,15 +109,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!_isMobile)
-                  SwitchListTile(
-                    title: const Text("Use external server"),
-                    subtitle: const Text("Connect to a manually started server"),
-                    value: _useExternal,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (v) => setState(() => _useExternal = v),
-                  ),
-                if (_useExternal || _isMobile) ...[
+                SwitchListTile(
+                  title: const Text("Use external server"),
+                  subtitle: const Text("Connect to a manually started server"),
+                  value: _useExternal,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (v) => setState(() => _useExternal = v),
+                ),
+                if (_useExternal) ...[
                   const SizedBox(height: 12),
                   Text(
                     "Server URL",
@@ -161,11 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _serverUrlController,
-                    decoration: InputDecoration(
-                      hintText: _isMobile
-                          ? "http://192.168.1.x:3001"
-                          : "http://127.0.0.1:3001",
-                    ),
+                    decoration: const InputDecoration(hintText: "http://127.0.0.1:3001"),
                   ),
                 ],
                 const SizedBox(height: 16),

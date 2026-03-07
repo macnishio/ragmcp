@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'models/app_config.dart';
@@ -56,21 +53,7 @@ class _RagMcpAppState extends State<RagMcpApp> with WidgetsBindingObserver {
     final config = await _storageService.loadConfig();
     if (!mounted) return;
 
-    // On mobile platforms, embedded server is not available
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-
-    if (isMobile && !config.useExternalServer) {
-      // Force external server mode on mobile
-      final updated = config.copyWith(useExternalServer: true);
-      await _storageService.saveConfig(updated);
-      setState(() {
-        _config = updated;
-        _loading = false;
-      });
-      return;
-    }
-
-    // Try to start embedded server on desktop
+    // Try to start embedded server
     if (!config.useExternalServer) {
       final url = await serverProcessService.startServer();
       if (url != null) {
