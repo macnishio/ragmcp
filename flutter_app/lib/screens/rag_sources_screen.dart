@@ -37,7 +37,21 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
   void initState() {
     super.initState();
     _service = RagSourceService(baseUrl: widget.config.serverUrl);
-    _refresh();
+    _checkServerConnection();
+  }
+
+  Future<void> _checkServerConnection() async {
+    try {
+      await _service.fetchHealth();
+      _refresh();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = "サーバーに接続できません: ${widget.config.serverUrl}\nエラー: $error\n\nサーバーが起動していることを確認してください。";
+        });
+      }
+    }
   }
 
   @override
@@ -45,7 +59,7 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.config.serverUrl != widget.config.serverUrl) {
       _service = RagSourceService(baseUrl: widget.config.serverUrl);
-      _refresh();
+      _checkServerConnection();
     }
   }
 
@@ -294,9 +308,50 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
           if (_busy) const LinearProgressIndicator(),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(color: theme.colorScheme.error),
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "接続エラー",
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _busy ? null : _checkServerConnection,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text("再試行"),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 12),

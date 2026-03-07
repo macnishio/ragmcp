@@ -7,17 +7,22 @@ import '../models/rag_source.dart';
 
 class RagSourceService {
   final String baseUrl;
+  final http.Client _client;
 
   RagSourceService({
     required this.baseUrl,
-  });
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
   String get _normalizedBaseUrl => baseUrl.replaceAll(RegExp(r"/+$"), "");
 
   Uri _uri(String path) => Uri.parse("$_normalizedBaseUrl$path");
 
   Future<Map<String, dynamic>> fetchHealth() async {
-    final response = await http.get(_uri("/health"));
+    final response = await _client.get(_uri("/health")).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
     _throwIfNeeded(response);
 
     final payload = json.decode(response.body);
@@ -25,7 +30,10 @@ class RagSourceService {
   }
 
   Future<List<RagSource>> fetchSources() async {
-    final response = await http.get(_uri("/rag/sources"));
+    final response = await _retryWithBackoff(
+      () => _client.get(_uri("/rag/sources")),
+      maxRetries: 3,
+    );
     _throwIfNeeded(response);
 
     final payload = json.decode(response.body);
@@ -40,11 +48,44 @@ class RagSourceService {
         .toList();
   }
 
+  Future<http.Response> _retryWithBackoff(
+    Future<http.Response> Function() request, {
+    int maxRetries = 3,
+    Duration initialDelay = const Duration(milliseconds: 500),
+  }) async {
+    http.Response? lastResponse;
+    Exception? lastException;
+
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await request().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => throw HttpException("Connection timeout"),
+        );
+        return response;
+      } catch (e) {
+        lastException = e as Exception;
+        if (attempt == maxRetries) {
+          break;
+        }
+        
+        // 指数バックオフ
+        final delay = initialDelay * (1 << attempt);
+        await Future.delayed(delay);
+      }
+    }
+    
+    throw lastException ?? HttpException("Request failed after $maxRetries retries");
+  }
+
   Future<RagSource> createSource(String name) async {
-    final response = await http.post(
+    final response = await _client.post(
       _uri("/rag/sources"),
       headers: _jsonHeaders,
       body: json.encode({"name": name}),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
     );
     _throwIfNeeded(response);
 
@@ -71,19 +112,25 @@ class RagSourceService {
       });
     }
 
-    final response = await http.post(
+    final response = await _client.post(
       _uri("/rag/sources/$sourceId/files"),
       headers: _jsonHeaders,
       body: json.encode({"files": filePayloads}),
+    ).timeout(
+      const Duration(minutes: 5),
+      onTimeout: () => throw HttpException("Connection timeout"),
     );
     _throwIfNeeded(response);
   }
 
   Future<Map<String, dynamic>> syncSource(String sourceId) async {
-    final response = await http.post(
+    final response = await _client.post(
       _uri("/rag/sources/$sourceId/sync"),
       headers: _jsonHeaders,
       body: json.encode({}),
+    ).timeout(
+      const Duration(minutes: 2),
+      onTimeout: () => throw HttpException("Connection timeout"),
     );
     _throwIfNeeded(response);
 
@@ -96,13 +143,16 @@ class RagSourceService {
     String query, {
     int limit = 8,
   }) async {
-    final response = await http.post(
+    final response = await _client.post(
       _uri("/rag/sources/$sourceId/search"),
       headers: _jsonHeaders,
       body: json.encode({
         "query": query,
         "limit": limit,
       }),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
     );
     _throwIfNeeded(response);
 
@@ -124,13 +174,16 @@ class RagSourceService {
     String question, {
     int limit = 5,
   }) async {
-    final response = await http.post(
+    final response = await _client.post(
       _uri("/rag/sources/$sourceId/answer"),
       headers: _jsonHeaders,
       body: json.encode({
         "question": question,
         "limit": limit,
       }),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
     );
     _throwIfNeeded(response);
 
