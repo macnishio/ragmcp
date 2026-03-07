@@ -1,0 +1,37 @@
+{
+  "name": "ragmcp",
+  "version": "0.1.0",
+  "description": "Fully local MCP server and Flutter client for repository-style RAG",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "start:stdio": "node dist/server.js --stdio",
+    "build": "tsc -p tsconfig.build.json",
+    "bundle": "node scripts/build-server-bundle.mjs",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "npm run type-check"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.4",
+    "@types/node": "^24.5.2",
+    "@types/supertest": "^6.0.3",
+    "esbuild": "^0.25.9",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.7"
+  }
+}
