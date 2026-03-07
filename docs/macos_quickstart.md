@@ -8,7 +8,7 @@
 ## サーバー起動
 
 ```bash
-cd /Users/nishio/ragmcp
+cd ragmcp
 npm install      # 初回のみ
 npm run dev
 ```
@@ -24,7 +24,7 @@ curl http://127.0.0.1:3001/health
 別ターミナルで:
 
 ```bash
-cd /Users/nishio/ragmcp/flutter_app
+cd ragmcp/flutter_app
 flutter pub get   # 初回のみ
 flutter run -d macos
 ```

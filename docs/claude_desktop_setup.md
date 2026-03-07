@@ -15,19 +15,21 @@ macOS:
 {
   "mcpServers": {
     "ragmcp": {
-      "command": "/Users/nishio/ragmcp/build/sea/ragmcp-server-darwin-arm64",
+      "command": "/path/to/ragmcp/build/sea/ragmcp-server-darwin-arm64",
       "args": ["--stdio"]
     }
   }
 }
 ```
 
+`/path/to/ragmcp` は実際のインストールパスに置き換えてください。
+
 既存の MCP サーバーがある場合は `mcpServers` に並列で追加する。設定例全体は `claude_desktop_config.json` を参照。
 
 ## SEA バイナリのビルド（初回のみ）
 
 ```bash
-cd /Users/nishio/ragmcp
+cd ragmcp
 npm install
 npm run build
 npm run sea:build
