@@ -93,6 +93,31 @@ class RagSourceService {
     return RagSource.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  Future<void> deleteSource(String sourceId) async {
+    final response = await _client.delete(
+      _uri("/rag/sources/$sourceId"),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    _throwIfNeeded(response);
+  }
+
+  Future<RagSource> renameSource(String sourceId, String name) async {
+    final response = await _client.patch(
+      _uri("/rag/sources/$sourceId"),
+      headers: _jsonHeaders,
+      body: json.encode({"name": name}),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw HttpException("Connection timeout"),
+    );
+    _throwIfNeeded(response);
+
+    final payload = json.decode(response.body);
+    return RagSource.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
+  }
+
   Future<void> uploadFiles(
     String sourceId,
     List<File> files, {

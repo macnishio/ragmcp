@@ -34,6 +34,29 @@ export function createRagRouter(ragService: RagService): Router {
     }
   });
 
+  router.delete("/sources/:sourceId", async (req, res) => {
+    try {
+      await ragService.deleteSource(req.params.sourceId);
+      res.json({ success: true, data: { deleted: true } });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.patch("/sources/:sourceId", (req, res) => {
+    try {
+      const name = String(req.body?.name ?? "").trim();
+      if (!name) {
+        res.status(400).json({ success: false, error: "name is required" });
+        return;
+      }
+      const source = ragService.renameSource(req.params.sourceId, name);
+      res.json({ success: true, data: source });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   router.post("/sources/:sourceId/files", async (req, res) => {
     try {
       const sourceId = req.params.sourceId;

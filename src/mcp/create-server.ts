@@ -108,6 +108,37 @@ export function createMcpServer(ragService: RagService): McpServer {
   );
 
   server.registerTool(
+    "delete_source",
+    {
+      title: "Delete Source",
+      description: "Delete a local RAG source and all its documents, chunks, and files.",
+      inputSchema: z.object({
+        sourceId: z.string().min(1).describe("Source identifier to delete."),
+      }),
+    },
+    async ({ sourceId }: { sourceId: string }): Promise<CallToolResult> => {
+      await ragService.deleteSource(sourceId);
+      return toToolResult({ deleted: true, sourceId });
+    },
+  );
+
+  server.registerTool(
+    "rename_source",
+    {
+      title: "Rename Source",
+      description: "Rename an existing local RAG source.",
+      inputSchema: z.object({
+        sourceId: z.string().min(1).describe("Source identifier to rename."),
+        name: z.string().min(1).describe("New name for the source."),
+      }),
+    },
+    async ({ sourceId, name }: { sourceId: string; name: string }): Promise<CallToolResult> => {
+      const source = ragService.renameSource(sourceId, name);
+      return toToolResult(source);
+    },
+  );
+
+  server.registerTool(
     "search_source",
     {
       title: "Search Source",

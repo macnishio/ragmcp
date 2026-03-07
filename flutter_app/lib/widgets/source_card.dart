@@ -10,6 +10,8 @@ class SourceCard extends StatelessWidget {
   final VoidCallback onUploadFiles;
   final VoidCallback onUploadFolder;
   final VoidCallback onSync;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
 
   const SourceCard({
     super.key,
@@ -19,6 +21,8 @@ class SourceCard extends StatelessWidget {
     required this.onUploadFiles,
     required this.onUploadFolder,
     required this.onSync,
+    required this.onRename,
+    required this.onDelete,
   });
 
   @override
@@ -49,6 +53,32 @@ class SourceCard extends StatelessWidget {
                     backgroundColor: selected
                         ? theme.colorScheme.secondaryContainer
                         : theme.colorScheme.surfaceContainerHighest,
+                  ),
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'rename') onRename();
+                      if (value == 'delete') onDelete();
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: ListTile(
+                          leading: Icon(Icons.edit),
+                          title: Text('Rename'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete, color: Colors.red),
+                          title: Text('Delete', style: TextStyle(color: Colors.red)),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

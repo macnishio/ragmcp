@@ -197,6 +197,73 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
     });
   }
 
+  Future<void> _renameSource(RagSource source) async {
+    final controller = TextEditingController(text: source.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Rename source"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: "New name"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text("Rename"),
+          ),
+        ],
+      ),
+    );
+
+    if (newName == null || newName.isEmpty || newName == source.name) {
+      return;
+    }
+
+    await _runBusy(() async {
+      await _service.renameSource(source.sourceId, newName);
+      await _refresh();
+    });
+  }
+
+  Future<void> _deleteSource(RagSource source) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete source"),
+        content: Text('Delete "${source.name}" and all its documents?\nThis cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await _runBusy(() async {
+      await _service.deleteSource(source.sourceId);
+      if (_selectedSource?.sourceId == source.sourceId) {
+        _selectedSource = null;
+      }
+      await _refresh();
+    });
+  }
+
   Future<void> _sync(RagSource source) async {
     await _runBusy(() async {
       await _service.syncSource(source.sourceId);
@@ -407,6 +474,8 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
                   onUploadFiles: _busy ? () {} : () => _uploadFiles(source),
                   onUploadFolder: _busy ? () {} : () => _uploadFolder(source),
                   onSync: _busy ? () {} : () => _sync(source),
+                  onRename: _busy ? () {} : () => _renameSource(source),
+                  onDelete: _busy ? () {} : () => _deleteSource(source),
                 ),
               ),
             ),

@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import type { DatabaseSync } from "node:sqlite";
@@ -121,6 +121,39 @@ export class RagService {
       .run(sourceId, name.trim(), now, now);
 
     await mkdir(join(this.paths.filesDir, sourceId), { recursive: true });
+    return this.requireSource(sourceId);
+  }
+
+  async deleteSource(sourceId: string): Promise<void> {
+    this.requireSource(sourceId);
+
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare("DELETE FROM chunks_fts WHERE source_id = ?").run(sourceId);
+      this.db.prepare("DELETE FROM chunks WHERE source_id = ?").run(sourceId);
+      this.db.prepare("DELETE FROM documents WHERE source_id = ?").run(sourceId);
+      this.db.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+
+    const filesDir = join(this.paths.filesDir, sourceId);
+    await rm(filesDir, { recursive: true, force: true });
+  }
+
+  renameSource(sourceId: string, newName: string): RagSource {
+    this.requireSource(sourceId);
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      throw new Error("name must not be empty");
+    }
+
+    this.db
+      .prepare("UPDATE sources SET name = ?, updated_at = ? WHERE id = ?")
+      .run(trimmed, new Date().toISOString(), sourceId);
+
     return this.requireSource(sourceId);
   }
 
