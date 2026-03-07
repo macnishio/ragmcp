@@ -41,6 +41,26 @@ Useful endpoints:
 - `POST /rag/sources/:sourceId/answer`
 - `POST /mcp`
 
+## Server executable build
+
+Local single-executable packaging for the current platform:
+
+```bash
+npm install
+npm run sea:build
+./build/sea/ragmcp-server-$(node -p "process.platform + '-' + process.arch")
+```
+
+On Windows, run the generated `.exe` instead.
+
+The SEA build uses:
+
+- an internal CJS bundle built from `src/sea-main.ts`
+- `node --experimental-sea-config`
+- `postject`
+
+On macOS, the build script automatically thins a universal Node binary to the active architecture before injecting the SEA blob.
+
 ## Flutter quick start
 
 ```bash
@@ -66,4 +86,4 @@ Override with `RAGMCP_DATA_DIR=/custom/path`.
 - The initial scaffold indexes text-oriented files only.
 - PDF and model-backed vector search are not implemented yet.
 - The server currently uses `node:sqlite`, which is still marked experimental in Node.js.
-- GitHub Actions can build Flutter desktop/mobile artifacts now, but the MCP server is currently released as a bundled script artifact, not a single native executable yet.
+- GitHub Actions now build per-platform MCP server executables with Node SEA, plus Flutter artifacts.

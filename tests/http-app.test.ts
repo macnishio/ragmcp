@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createHttpApp } from "../src/server.js";
+import { createHttpApp } from "../src/runtime.js";
 import { ensureAppPaths } from "../src/system/app-paths.js";
 import { RagService } from "../src/services/rag/service.js";
 

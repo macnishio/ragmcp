@@ -13,6 +13,7 @@
     "start:stdio": "node dist/server.js --stdio",
     "build": "tsc -p tsconfig.build.json",
     "bundle": "node scripts/build-server-bundle.mjs",
+    "sea:build": "node scripts/build-server-sea.mjs",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "lint": "npm run type-check"
@@ -29,6 +30,7 @@
     "@types/node": "^24.5.2",
     "@types/supertest": "^6.0.3",
     "esbuild": "^0.25.9",
+    "postject": "^1.0.0-alpha.6",
     "supertest": "^7.1.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
