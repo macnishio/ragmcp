@@ -269,6 +269,12 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
       if (entry is! File) {
         continue;
       }
+      
+      // Google Drive仮想ファイルとサポート外のファイルを除外
+      if (_isUnsupportedFile(entry)) {
+        continue;
+      }
+      
       if (entry.path.contains("/.") || entry.path.contains("${Platform.pathSeparator}build${Platform.pathSeparator}")) {
         continue;
       }
@@ -276,6 +282,32 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
     }
 
     return files;
+  }
+
+  // サポート外のファイルをチェック（RagSourceServiceと同じロジック）
+  bool _isUnsupportedFile(File file) {
+    final fileName = file.path.toLowerCase();
+    final unsupportedExtensions = [
+      '.gsheet', '.gdoc', '.gslides', '.gdraw', '.gform', '.gsite',
+      '.lnk', '.tmp', '.temp', '.cache', '.log',
+      '.exe', '.dll', '.sys', '.bat', '.cmd', '.ps1',
+      '.msi', '.deb', '.rpm', '.dmg', '.app',
+    ];
+    
+    // Google Drive仮想ファイルをチェック
+    if (fileName.contains('google drive') || 
+        fileName.startsWith('g:\\') ||
+        unsupportedExtensions.any((ext) => fileName.endsWith(ext))) {
+      return true;
+    }
+    
+    // 隠しファイルをチェック
+    final fileNameOnly = file.uri.pathSegments.last;
+    if (fileNameOnly.startsWith('.')) {
+      return true;
+    }
+    
+    return false;
   }
 
   @override
