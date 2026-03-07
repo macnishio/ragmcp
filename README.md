@@ -66,3 +66,4 @@ Override with `RAGMCP_DATA_DIR=/custom/path`.
 - The initial scaffold indexes text-oriented files only.
 - PDF and model-backed vector search are not implemented yet.
 - The server currently uses `node:sqlite`, which is still marked experimental in Node.js.
+- GitHub Actions can build Flutter desktop/mobile artifacts now, but the MCP server is currently released as a bundled script artifact, not a single native executable yet.

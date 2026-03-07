@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  server_bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - run: npm run bundle
+      - run: mkdir -p artifacts && cp build/ragmcp-server.mjs artifacts/ragmcp-server-bundle.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-bundle
+          path: artifacts/ragmcp-server-bundle.mjs
+
+  flutter_macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: flutter_app
+        run: flutter pub get
+      - working-directory: flutter_app
+        run: flutter build macos --release
+      - working-directory: flutter_app
+        run: ditto -c -k build/macos/Build/Products/Release macos-release.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-macos
+          path: flutter_app/macos-release.zip
+
+  flutter_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: flutter_app
+        run: flutter pub get
+      - working-directory: flutter_app
+        run: flutter build linux --release
+      - working-directory: flutter_app
+        run: tar -czf linux-release.tar.gz -C build/linux/x64/release/bundle .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-linux
+          path: flutter_app/linux-release.tar.gz
+
+  flutter_windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: flutter_app
+        run: flutter pub get
+      - working-directory: flutter_app
+        run: flutter build windows --release
+      - shell: pwsh
+        working-directory: flutter_app
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows-release.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-windows
+          path: flutter_app/windows-release.zip
+
+  flutter_android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: flutter_app
+        run: flutter pub get
+      - working-directory: flutter_app
+        run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-android
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+
+  publish_release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - server_bundle
+      - flutter_macos
+      - flutter_linux
+      - flutter_windows
+      - flutter_android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-artifacts/server-bundle/ragmcp-server-bundle.mjs
+            release-artifacts/app-macos/macos-release.zip
+            release-artifacts/app-linux/linux-release.tar.gz
+            release-artifacts/app-windows/windows-release.zip
+            release-artifacts/app-android/app-release.apk
