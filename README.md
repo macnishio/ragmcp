@@ -13,12 +13,41 @@ No cloud services required — all data stays on your machine.
 - **Local folder ingestion** — point at a folder and index all text files automatically
 - **Node.js SEA binary** — single executable, no runtime dependencies
 
+## Download
+
+Pre-built binaries are available on the [Releases](https://github.com/macnishio/ragmcp/releases) page.
+
+### MCP Server (Node.js not required)
+
+| OS | Architecture | File |
+|----|-------------|------|
+| macOS | ARM64 (Apple Silicon) | `ragmcp-server-darwin-arm64` |
+| Linux | x64 | `ragmcp-server-linux-x64` |
+| Windows | x64 | `ragmcp-server-win32-x64.exe` |
+
+Also available: `ragmcp-server-bundle.mjs` — single JS file that runs with `node ragmcp-server-bundle.mjs` (requires Node.js 24+).
+
+### Flutter App
+
+| OS | File |
+|----|------|
+| macOS | `macos-release.zip` |
+| Linux | `linux-release.tar.gz` |
+| Windows | `windows-release.zip` |
+| Android | `app-release.apk` |
+
 ## Quick start (macOS)
 
-### Prerequisites
+### Option A: Download binary (recommended)
 
-- Node.js 24+
-- Flutter SDK (for the desktop app)
+1. Download `ragmcp-server-darwin-arm64` from [Releases](https://github.com/macnishio/ragmcp/releases)
+2. `chmod +x ragmcp-server-darwin-arm64`
+3. `./ragmcp-server-darwin-arm64` — starts HTTP server on port 3001
+4. Download `macos-release.zip`, unzip, and run the Flutter app
+
+### Option B: Build from source
+
+Prerequisites: Node.js 24+, Flutter SDK
 
 ### Server
 
