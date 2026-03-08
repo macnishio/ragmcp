@@ -344,16 +344,20 @@ class LocalRagService implements RagServiceInterface {
       }
     }
 
-    return rows
-        .map((row) => RagSearchResult(
-          chunkId: row.readText('chunk_id'),
-          documentId: row.readText('document_id'),
-          relPath: row.readText('rel_path'),
-          heading: row.readText('heading'),
-          content: row.readText('content'),
-          score: row.readReal('rank'),
-        ))
-        .toList();
+    return rows.map((row) {
+      final rank = (row['rank'] as num?)?.toDouble() ?? 1.0;
+      final score = max(0, (100 - rank * 10).round());
+      final content = (row['content'] ?? '') as String;
+      return RagSearchResult(
+        chunkId: (row['chunk_id'] ?? '') as String,
+        documentId: (row['document_id'] ?? '') as String,
+        relPath: (row['rel_path'] ?? '') as String,
+        heading: row['heading'] as String?,
+        content: content,
+        excerpt: buildExcerpt(content, query),
+        score: score,
+      );
+    }).toList();
   }
 
   /// Prepare search query variations for better Japanese text matching
@@ -363,9 +367,6 @@ class LocalRagService implements RagServiceInterface {
     // Add hiragana to katakana and vice versa
     variations.add(_hiraganaToKatakana(query));
     variations.add(_katakanaToHiragana(query));
-    
-    // Add normalized version (NFKC)
-    variations.add(query.normalize(NormalizationForm.nfkc));
     
     // Add half-width to full-width conversions
     variations.add(_halfWidthToFullWidth(query));
@@ -413,43 +414,6 @@ class LocalRagService implements RagServiceInterface {
       }
       return match.group(0)!;
     });
-  }
-            WHERE chunks_trigram MATCH ? AND source_id = ?
-            ORDER BY rank ASC
-            LIMIT ?
-          ''', [escaped, sourceId, effectiveLimit]);
-        } catch (_) {
-          rows = [];
-        }
-      }
-    }
-
-    // Tier 3: LIKE fallback
-    if (rows.isEmpty) {
-      rows = db.select('''
-        SELECT c.id AS chunk_id, c.document_id, c.rel_path, c.heading, c.content,
-               1.0 AS rank
-        FROM chunks c
-        WHERE c.source_id = ? AND lower(c.content) LIKE '%' || lower(?) || '%'
-        ORDER BY c.rel_path ASC, c.chunk_index ASC
-        LIMIT ?
-      ''', [sourceId, query.trim(), effectiveLimit]);
-    }
-
-    return rows.map((Row row) {
-      final rank = (row['rank'] as num?)?.toDouble() ?? 1.0;
-      final score = max(0, (100 - rank * 10).round());
-      final content = (row['content'] ?? '') as String;
-      return RagSearchResult(
-        chunkId: (row['chunk_id'] ?? '') as String,
-        documentId: (row['document_id'] ?? '') as String,
-        relPath: (row['rel_path'] ?? '') as String,
-        heading: row['heading'] as String?,
-        content: content,
-        excerpt: buildExcerpt(content, query),
-        score: score,
-      );
-    }).toList();
   }
 
   @override
