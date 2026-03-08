@@ -5,8 +5,9 @@ import 'package:http/http.dart' as http;
 
 import '../models/rag_source.dart';
 import '../models/sync_schedule.dart';
+import 'rag_service_interface.dart';
 
-class RagSourceService {
+class RagSourceService implements RagServiceInterface {
   final String baseUrl;
   final http.Client _client;
 

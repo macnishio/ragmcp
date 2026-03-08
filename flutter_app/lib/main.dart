@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'models/app_config.dart';
 import 'screens/home_screen.dart';
@@ -15,6 +16,10 @@ final serverProcessService = ServerProcessService();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize bundled SQLite for Android/iOS (includes FTS5 + trigram)
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+  }
   runApp(const RagMcpApp());
 }
 
@@ -56,15 +61,10 @@ class _RagMcpAppState extends State<RagMcpApp> with WidgetsBindingObserver {
     final config = await _storageService.loadConfig();
     if (!mounted) return;
 
-    // On mobile platforms, embedded server is not available
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-
-    if (isMobile && !config.useExternalServer) {
-      // Force external server mode on mobile
-      final updated = config.copyWith(useExternalServer: true);
-      await _storageService.saveConfig(updated);
+    // On mobile platforms, use local SQLite RAG — no server needed
+    if (config.isLocalMode) {
       setState(() {
-        _config = updated;
+        _config = config;
         _loading = false;
       });
       return;

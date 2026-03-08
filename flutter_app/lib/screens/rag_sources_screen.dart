@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import '../models/app_config.dart';
 import '../models/rag_source.dart';
 import '../models/sync_schedule.dart';
-import '../services/rag_source_service.dart';
+import '../services/rag_service_factory.dart';
+import '../services/rag_service_interface.dart';
 import '../widgets/schedule_dialog.dart';
 import '../widgets/source_card.dart';
 
@@ -23,7 +24,7 @@ class RagSourcesScreen extends StatefulWidget {
 }
 
 class _RagSourcesScreenState extends State<RagSourcesScreen> {
-  late RagSourceService _service;
+  late RagServiceInterface _service;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _questionController = TextEditingController();
 
@@ -39,13 +40,31 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
   @override
   void initState() {
     super.initState();
-    _service = RagSourceService(baseUrl: widget.config.serverUrl);
-    _checkServerConnection();
+    _initService();
+  }
+
+  Future<void> _initService() async {
+    try {
+      _service = await RagServiceFactory.create(widget.config);
+      if (!widget.config.isLocalMode) {
+        await _service.fetchHealth();
+      }
+      _refresh();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = "サーバーに接続できません: ${widget.config.serverUrl}\nエラー: $error\n\nサーバーが起動していることを確認してください。";
+        });
+      }
+    }
   }
 
   Future<void> _checkServerConnection() async {
     try {
-      await _service.fetchHealth();
+      if (!widget.config.isLocalMode) {
+        await _service.fetchHealth();
+      }
       _refresh();
     } catch (error) {
       if (mounted) {
@@ -61,8 +80,7 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
   void didUpdateWidget(covariant RagSourcesScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.config.serverUrl != widget.config.serverUrl) {
-      _service = RagSourceService(baseUrl: widget.config.serverUrl);
-      _checkServerConnection();
+      _initService();
     }
   }
 
@@ -545,7 +563,7 @@ class _RagSourcesScreenState extends State<RagSourcesScreen> {
                   onSync: _busy ? () {} : () => _sync(source),
                   onRename: _busy ? () {} : () => _renameSource(source),
                   onDelete: _busy ? () {} : () => _deleteSource(source),
-                  onSchedule: _busy ? () {} : () => _openScheduleDialog(source),
+                  onSchedule: widget.config.isLocalMode ? null : (_busy ? () {} : () => _openScheduleDialog(source)),
                   schedule: _schedules[source.sourceId],
                 ),
               ),

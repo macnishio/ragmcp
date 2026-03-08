@@ -13,7 +13,7 @@ class SourceCard extends StatelessWidget {
   final VoidCallback onSync;
   final VoidCallback onRename;
   final VoidCallback onDelete;
-  final VoidCallback onSchedule;
+  final VoidCallback? onSchedule;
   final SyncSchedule? schedule;
 
   const SourceCard({
@@ -26,7 +26,7 @@ class SourceCard extends StatelessWidget {
     required this.onSync,
     required this.onRename,
     required this.onDelete,
-    required this.onSchedule,
+    this.onSchedule,
     this.schedule,
   });
 
@@ -147,11 +147,12 @@ class SourceCard extends StatelessWidget {
                     icon: const Icon(Icons.sync),
                     label: const Text("Sync"),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: onSchedule,
-                    icon: Icon(schedule != null ? Icons.schedule : Icons.schedule_outlined),
-                    label: const Text("Schedule"),
-                  ),
+                  if (onSchedule != null)
+                    OutlinedButton.icon(
+                      onPressed: onSchedule,
+                      icon: Icon(schedule != null ? Icons.schedule : Icons.schedule_outlined),
+                      label: const Text("Schedule"),
+                    ),
                 ],
               ),
             ],

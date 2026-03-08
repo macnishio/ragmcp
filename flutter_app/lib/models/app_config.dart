@@ -1,3 +1,7 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class AppConfig {
   final String serverUrl;
   final bool isEmbeddedServer;
@@ -8,6 +12,8 @@ class AppConfig {
     this.isEmbeddedServer = false,
     this.useExternalServer = false,
   });
+
+  bool get isLocalMode => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   AppConfig copyWith({
     String? serverUrl,

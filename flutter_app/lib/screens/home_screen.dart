@@ -1,10 +1,8 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../models/app_config.dart';
-import '../services/rag_source_service.dart';
+import '../services/rag_service_factory.dart';
+import '../services/rag_service_interface.dart';
 
 class HomeScreen extends StatefulWidget {
   final AppConfig config;
@@ -23,7 +21,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late RagSourceService _service;
+  RagServiceInterface? _service;
   Map<String, dynamic>? _health;
   String? _error;
   bool _loading = true;
@@ -31,16 +29,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _service = RagSourceService(baseUrl: widget.config.serverUrl);
+    _initService();
+  }
+
+  Future<void> _initService() async {
+    _service = await RagServiceFactory.create(widget.config);
     _refresh();
   }
 
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.config.serverUrl != widget.config.serverUrl) {
-      _service = RagSourceService(baseUrl: widget.config.serverUrl);
-      _refresh();
+    if (oldWidget.config.serverUrl != widget.config.serverUrl ||
+        oldWidget.config.isLocalMode != widget.config.isLocalMode) {
+      _initService();
     }
   }
 
@@ -51,7 +53,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final health = await _service.fetchHealth();
+      if (_service == null) return;
+      final health = await _service!.fetchHealth();
       if (!mounted) {
         return;
       }
@@ -102,13 +105,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Server",
+                    widget.config.isLocalMode ? "Local RAG" : "Server",
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SelectableText(widget.config.serverUrl),
+                  SelectableText(widget.config.isLocalMode
+                      ? "Data stored on device"
+                      : widget.config.serverUrl),
                   const SizedBox(height: 12),
                   if (_loading)
                     const LinearProgressIndicator()
@@ -117,14 +122,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       _error!,
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
-                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          "On mobile, configure your PC's server URL in Settings.",
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
                   ]
                   else if (_health != null)
                     Wrap(

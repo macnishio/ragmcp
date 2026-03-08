@@ -85,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 20),
         if (_isMobile)
           Card(
-            color: theme.colorScheme.secondaryContainer,
+            color: theme.colorScheme.primaryContainer,
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -93,11 +93,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.phone_android, color: theme.colorScheme.onSecondaryContainer),
+                      Icon(Icons.storage, color: theme.colorScheme.onPrimaryContainer),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "Mobile device",
+                          "Local mode",
                           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -105,15 +105,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "On mobile, an external ragmcp server is required. "
-                    "Start the server on your PC and enter its URL below.\n\n"
-                    "Example: http://192.168.1.10:3001",
+                    "RAG data is stored locally on this device. "
+                    "No external server needed.",
                   ),
                 ],
               ),
             ),
           ),
-        if (embedded && !_useExternal)
+        if (!_isMobile && embedded && !_useExternal)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -137,14 +136,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!_isMobile)
+        if (!_isMobile) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   SwitchListTile(
                     title: const Text("Use external server"),
                     subtitle: const Text("Connect to a manually started server"),
@@ -152,37 +151,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     onChanged: (v) => setState(() => _useExternal = v),
                   ),
-                if (_useExternal || _isMobile) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    "Server URL",
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _serverUrlController,
-                    decoration: InputDecoration(
-                      hintText: _isMobile
-                          ? "http://192.168.1.x:3001"
-                          : "http://127.0.0.1:3001",
+                  if (_useExternal) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      "Server URL",
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _serverUrlController,
+                      decoration: const InputDecoration(
+                        hintText: "http://127.0.0.1:3001",
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: const Text("Save"),
                   ),
                 ],
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: _saving
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save_outlined),
-                  label: const Text("Save"),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
