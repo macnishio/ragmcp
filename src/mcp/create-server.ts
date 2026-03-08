@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { appendFile, readFile, readdir, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -6,6 +6,24 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import type { RagService } from "../services/rag/service.js";
+
+const DEBUG_LOG_PATH = join(process.cwd(), "debug-8d1b2e.log");
+function debugLog(message: string, data: Record<string, unknown>, hypothesisId: string): void {
+  const payload = {
+    sessionId: "8d1b2e",
+    location: "create-server.ts",
+    message,
+    data,
+    timestamp: Date.now(),
+    hypothesisId,
+  };
+  appendFile(DEBUG_LOG_PATH, JSON.stringify(payload) + "\n").catch(() => {});
+  fetch("http://127.0.0.1:7306/ingest/87542dba-b64c-4039-8371-0629646a220b", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d1b2e" },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}
 
 function toToolResult(payload: unknown): CallToolResult {
   return {
@@ -213,6 +231,15 @@ export function createMcpServer(ragService: RagService): McpServer {
       sourceName?: string;
       folderPath: string;
     }): Promise<CallToolResult> => {
+      // #region agent log
+      debugLog("ingest_local_folder received folderPath", { folderPath, pathLength: folderPath?.length }, "H1");
+      const statResult = await stat(folderPath).then(
+        (s) => ({ ok: true, isDirectory: s.isDirectory(), size: s.size }),
+        (e: unknown) => ({ ok: false, error: String((e as Error)?.message ?? e) }),
+      );
+      debugLog("folder stat from server process", { folderPath: folderPath.slice(0, 80), ...statResult }, "H5");
+      // #endregion
+
       let resolvedSourceId = sourceId;
       if (!resolvedSourceId) {
         if (!sourceName) {
@@ -223,6 +250,10 @@ export function createMcpServer(ragService: RagService): McpServer {
 
       // Walk the folder to collect file paths (not contents) to avoid OOM
       const filePaths = await collectLocalFilePaths(folderPath);
+
+      // #region agent log
+      debugLog("filePaths count and sample", { filePathsLength: filePaths.length, firstPath: filePaths[0] ?? null }, "H2");
+      // #endregion
 
       if (filePaths.length === 0) {
         return toToolResult({
@@ -237,6 +268,15 @@ export function createMcpServer(ragService: RagService): McpServer {
       for (let i = 0; i < filePaths.length; i += 50) {
         const batchPaths = filePaths.slice(i, i + 50);
         const batch = await readFileBatch(folderPath, batchPaths);
+        // #region agent log
+        if (i === 0) {
+          debugLog("first batch read result", {
+            batchPathsCount: batchPaths.length,
+            batchReadCount: batch.length,
+            firstFileName: batch[0]?.name ?? null,
+          }, "H3");
+        }
+        // #endregion
         if (batch.length > 0) {
           const result = await ragService.uploadFiles(resolvedSourceId, batch);
           totalStored += result.filesStored;
@@ -315,7 +355,17 @@ async function collectLocalFilePaths(rootDir: string): Promise<string[]> {
   const paths: string[] = [];
 
   async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await readdir(dir, { withFileTypes: true }).catch((err) => {
+      // #region agent log
+      debugLog("readdir failed", { dir, error: String((err as Error)?.message ?? err) }, "H5");
+      // #endregion
+      return [];
+    });
+    // #region agent log
+    if (paths.length === 0 && dir === rootDir) {
+      debugLog("root readdir result", { rootDir, entriesCount: Array.isArray(entries) ? entries.length : 0 }, "H2");
+    }
+    // #endregion
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
