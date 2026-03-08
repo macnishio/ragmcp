@@ -236,13 +236,14 @@ export function createMcpServer(ragService: RagService): McpServer {
       sourceName?: string;
       folderPath: string;
     }): Promise<CallToolResult> => {
+      const normalizedPath = normalizeFolderPath(folderPath);
       // #region agent log
-      debugLog("ingest_local_folder received folderPath", { folderPath, pathLength: folderPath?.length }, "H1");
-      const statResult = await stat(folderPath).then(
+      debugLog("ingest_local_folder received folderPath", { folderPath, normalizedPath, pathLength: folderPath?.length }, "H1");
+      const statResult = await stat(normalizedPath).then(
         (s) => ({ ok: true, isDirectory: s.isDirectory(), size: s.size }),
         (e: unknown) => ({ ok: false, error: String((e as Error)?.message ?? e) }),
       );
-      debugLog("folder stat from server process", { folderPath: folderPath.slice(0, 80), ...statResult }, "H5");
+      debugLog("folder stat from server process", { folderPath: normalizedPath.slice(0, 80), ...statResult }, "H5");
       // #endregion
 
       let resolvedSourceId = sourceId;
@@ -254,7 +255,7 @@ export function createMcpServer(ragService: RagService): McpServer {
       }
 
       // Walk the folder to collect file paths (not contents) to avoid OOM
-      const filePaths = await collectLocalFilePaths(folderPath);
+      const filePaths = await collectLocalFilePaths(normalizedPath);
 
       // #region agent log
       debugLog("filePaths count and sample", { filePathsLength: filePaths.length, firstPath: filePaths[0] ?? null }, "H2");
@@ -356,6 +357,32 @@ export function createMcpServer(ragService: RagService): McpServer {
 }
 
 // Phase 1: Collect file paths only (no content loaded) to avoid OOM
+/**
+ * Normalize a folder path for the current platform.
+ * - Converts WSL-style /mnt/<drive>/... to <DRIVE>:\... on Windows
+ * - Converts forward slashes to backslashes on Windows
+ * - Trims surrounding quotes and whitespace
+ */
+function normalizeFolderPath(inputPath: string): string {
+  let p = inputPath.trim().replace(/^["']|["']$/g, "");
+
+  if (process.platform === "win32") {
+    // WSL path: /mnt/c/Users/... → C:\Users\...
+    const wslMatch = p.match(/^\/mnt\/([a-zA-Z])\/(.*)/);
+    if (wslMatch) {
+      p = `${wslMatch[1].toUpperCase()}:\\${wslMatch[2].replace(/\//g, "\\")}`;
+    } else if (/^\/[a-zA-Z]\//.test(p)) {
+      // MSYS/Git Bash style: /c/Users/... → C:\Users\...
+      p = `${p[1].toUpperCase()}:\\${p.slice(3).replace(/\//g, "\\")}`;
+    } else {
+      // Just normalize slashes
+      p = p.replace(/\//g, "\\");
+    }
+  }
+
+  return p;
+}
+
 async function collectLocalFilePaths(rootDir: string): Promise<string[]> {
   const paths: string[] = [];
 
