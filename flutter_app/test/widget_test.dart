@@ -16,6 +16,11 @@ void main() {
     );
 
     expect(find.text('Settings'), findsWidgets);
-    expect(find.text('Local server URL'), findsOneWidget);
+    
+    // 外部サーバートグルをオンにする
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    
+    expect(find.text('Server URL'), findsOneWidget);
   });
 }
