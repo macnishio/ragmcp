@@ -20,14 +20,17 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "claude": "^0.1.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "pdf-parse": "^2.4.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.4",
     "@types/node": "^24.5.2",
+    "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^6.0.3",
     "esbuild": "^0.25.9",
     "postject": "^1.0.0-alpha.6",

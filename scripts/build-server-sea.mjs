@@ -3,7 +3,7 @@ import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, exec as nodeExec } from "node:child_process";
 
 const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -26,6 +26,21 @@ const postjectPath = resolve(
   ".bin",
   platform === "win32" ? "postject.cmd" : "postject",
 );
+// Node.jsの実行パスを取得
+const getNodePath = () => {
+  return new Promise((resolve, reject) => {
+    nodeExec(process.platform === "win32" ? "where node" : "which node", (error, stdout) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(stdout.trim().split('\n')[0]);
+      }
+    });
+  });
+};
+
+const nodePath = await getNodePath();
+
 const sentinelFuse = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 
 await rm(buildDir, { recursive: true, force: true });
@@ -58,7 +73,7 @@ await writeFile(
   ),
 );
 
-await exec(process.execPath, ["--experimental-sea-config", configPath], {
+await exec(nodePath, ["--experimental-sea-config", configPath], {
   cwd: projectRoot,
 });
 
@@ -96,7 +111,7 @@ console.log(targetPath);
 
 async function prepareSourceBinary() {
   if (platform !== "darwin") {
-    return process.execPath;
+    return nodePath;
   }
 
   const lipoInfo = await execCapture("lipo", ["-info", process.execPath], {
@@ -118,6 +133,7 @@ function exec(command, args, options = {}) {
     const child = spawn(command, args, {
       stdio: "inherit",
       shell: process.platform === "win32",
+      windowsHide: true,
       ...options,
     });
 

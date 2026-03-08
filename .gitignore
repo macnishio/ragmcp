@@ -1,14 +1,25 @@
+# Dependencies
 node_modules/
 dist/
 build/
-.DS_Store
+coverage/
+
+# Environment
 .env
+.env.local
+.env.production
+
+# IDE
+.DS_Store
 .idea/
 .vscode/
-coverage/
+*.swp
+*.swo
+*~
 
 # Local data
 .ragmcp-data/
+debug-*.log
 
 # Flutter
 flutter_app/.dart_tool/
@@ -16,5 +27,33 @@ flutter_app/.flutter-plugins
 flutter_app/.flutter-plugins-dependencies
 flutter_app/build/
 flutter_app/.packages
+flutter_app/windows/flutter/generated_plugins.cmake
+flutter_app/macos/Flutter/DebugProfile.entitlements
+flutter_app/macos/Runner/DebugProfile.entitlements
+flutter_app/macos/Runner/Configs/Debug.xcconfig
+flutter_app/macos/Flutter/Flutter-Debug.xcconfig
+flutter_app/ios/Flutter/Debug.xcconfig
+flutter_app/android/app/src/debug/
 
+# Temporary files
+*.tmp
+*.temp
+*.cache
+*.log
 flutter_sdk.zip
+flutter_new.zip
+flutter_install.zip
+test-*.mjs
+test-*.ps1
+
+# Binary executables
+bin/*.exe
+bin/*-*-*
+
+# SDK and distributions
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.msi
+*.snap

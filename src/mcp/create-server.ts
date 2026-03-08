@@ -7,8 +7,13 @@ import { z } from "zod";
 
 import type { RagService } from "../services/rag/service.js";
 
+// Debug logging only in development mode
 const DEBUG_LOG_PATH = join(process.cwd(), "debug-8d1b2e.log");
+const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
+
 function debugLog(message: string, data: Record<string, unknown>, hypothesisId: string): void {
+  if (!IS_DEVELOPMENT) return; // Skip logging in production
+  
   const payload = {
     sessionId: "8d1b2e",
     location: "create-server.ts",
@@ -381,13 +386,42 @@ async function collectLocalFilePaths(rootDir: string): Promise<string[]> {
       if (!entry.isFile() || entry.name.startsWith(".")) continue;
 
       const info = await stat(fullPath).catch(() => null);
-      if (!info || info.size > 10 * 1024 * 1024) continue; // skip >10MB
+      if (!info || info.size > 50 * 1024 * 1024) continue; // skip >50MB (increased from 10MB)
 
-      paths.push(fullPath);
+      // Accept text files by extension and content check
+      const ext = entry.name.toLowerCase().split('.').pop();
+      const isTextFile = ext === 'txt' || ext === 'md' || ext === 'json' || ext === 'yaml' || 
+                        ext === 'yml' || ext === 'csv' || ext === 'tsv' || ext === 'log' ||
+                        ext === 'rst' || ext === 'html' || ext === 'xml';
+      
+      if (isTextFile) {
+        paths.push(fullPath);
+        debugLog("added text file", { fileName: entry.name, size: info?.size }, "H3");
+        continue;
+      }
+
+      // For other files, check if they're actually text by reading a small sample
+      try {
+        const content = await readFile(fullPath, { encoding: 'utf8' });
+        const sample = content.slice(0, 512);
+        const controlChars = [...sample].filter((c) => {
+          const code = c.charCodeAt(0);
+          return code < 32 && code !== 9 && code !== 10 && code !== 13;
+        }).length;
+        
+        if (sample.length > 0 && controlChars / sample.length <= 0.05) {
+          paths.push(fullPath);
+          debugLog("added file by content check", { fileName: entry.name, size: info?.size }, "H3");
+        }
+      } catch {
+        // Skip unreadable files
+        debugLog("skipped unreadable file", { fileName: entry.name }, "H3");
+      }
     }
   }
 
   await walk(rootDir);
+  debugLog("final file collection", { totalFiles: paths.length, rootDir }, "H1");
   return paths;
 }
 
@@ -400,7 +434,21 @@ async function readFileBatch(
 
   for (const fullPath of filePaths) {
     try {
-      const content = await readFile(fullPath, "utf8");
+      let content: string;
+      try {
+        // First try UTF-8
+        content = await readFile(fullPath, "utf8");
+      } catch (utf8Error) {
+        // If UTF-8 fails, try other encodings
+        try {
+          content = await readFile(fullPath, "utf16le");
+        } catch (utf16Error) {
+          // Fallback to binary buffer and decode as best effort
+          const buffer = await readFile(fullPath);
+          content = buffer.toString("utf8", 0, Math.min(buffer.length, 1024 * 1024)); // Limit to 1MB
+        }
+      }
+
       // Skip binary-looking files (>5% control chars in first 512 bytes)
       const sample = content.slice(0, 512);
       const controlChars = [...sample].filter((c) => {
@@ -409,12 +457,21 @@ async function readFileBatch(
       }).length;
       if (sample.length > 0 && controlChars / sample.length > 0.05) continue;
 
+      // Generate safe filename (ASCII only for internal storage)
+      const originalName = relative(rootDir, fullPath);
+      const safeName = originalName
+        .replace(/[^\w\-_.]/g, "_") // Replace non-word chars with underscore
+        .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+        .toLowerCase();
+
       results.push({
-        name: relative(rootDir, fullPath),
+        name: safeName,
         content,
         encoding: "utf8",
       });
-    } catch {
+      debugLog("successfully read file", { originalName, safeName, contentLength: content.length }, "H3");
+    } catch (error) {
+      debugLog("failed to read file", { fullPath, error: String(error) }, "H3");
       // skip unreadable files
     }
   }

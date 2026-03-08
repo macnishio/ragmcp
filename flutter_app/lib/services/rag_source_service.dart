@@ -221,36 +221,6 @@ class RagSourceService implements RagServiceInterface {
   }
 
   @override
-  Future<List<RagSearchResult>> searchSource(
-    String sourceId,
-    String query, {
-    int limit = 8,
-  }) async {
-    final response = await _client.post(
-      _uri("/rag/sources/$sourceId/search"),
-      headers: _jsonHeaders,
-      body: json.encode({
-        "query": query,
-        "limit": limit,
-      }),
-    ).timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw HttpException("Connection timeout"),
-    );
-    _throwIfNeeded(response);
-
-    final payload = json.decode(response.body);
-    final data = Map<String, dynamic>.from(payload["data"] as Map);
-    final rawResults = data["results"];
-    if (rawResults is! List) {
-      return [];
-    }
-
-    return rawResults
-        .whereType<Map>()
-        .map((item) => RagSearchResult.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
-  }
 
   @override
   Future<RagAnswer> answerSource(

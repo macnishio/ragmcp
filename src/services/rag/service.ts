@@ -229,7 +229,7 @@ export class RagService {
     for (const filePath of discovered) {
       const relPath = relative(root, filePath);
       const raw = await readFile(filePath);
-      const plainText = extractTextFromBuffer(relPath, raw);
+      const plainText = await extractTextFromBuffer(relPath, raw);
       if (!plainText) {
         skippedFiles.push(relPath);
         continue;

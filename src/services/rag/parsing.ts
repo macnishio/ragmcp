@@ -1,9 +1,12 @@
 import { extname } from "node:path";
+import { readFile } from "node:fs/promises";
 
 import { SUPPORTED_TEXT_EXTENSIONS } from "./constants.js";
+import { extractTextFromPDF } from "./pdf-extraction.js";
 
 export function isSupportedTextFile(fileName: string): boolean {
-  return SUPPORTED_TEXT_EXTENSIONS.has(extname(fileName).toLowerCase());
+  const ext = extname(fileName).toLowerCase();
+  return SUPPORTED_TEXT_EXTENSIONS.has(ext) || ext === '.pdf';
 }
 
 function looksBinary(text: string): boolean {
@@ -18,8 +21,47 @@ function looksBinary(text: string): boolean {
   return controlCount > 8;
 }
 
-export function extractTextFromBuffer(fileName: string, content: Buffer): string | null {
-  if (!isSupportedTextFile(fileName)) {
+export async function extractTextFromBuffer(fileName: string, content: Buffer): Promise<string | null> {
+  const ext = extname(fileName).toLowerCase();
+  
+  // Handle PDF files with special extraction
+  if (ext === '.pdf') {
+    try {
+      // Create temporary file path for PDF extraction
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const os = await import('node:os');
+      
+      const tempDir = os.tmpdir();
+      const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${path.basename(fileName)}`);
+      
+      // Write buffer to temporary file
+      await fs.promises.writeFile(tempFilePath, content);
+      
+      try {
+        // Extract text from PDF
+        const result = await extractTextFromPDF(tempFilePath);
+        
+        if (result.metadata.success && result.text.trim()) {
+          return result.text;
+        }
+      } finally {
+        // Clean up temporary file
+        try {
+          await fs.promises.unlink(tempFilePath);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+    } catch (error) {
+      console.error('PDF extraction failed:', error);
+    }
+    
+    return null;
+  }
+  
+  // Handle regular text files
+  if (!SUPPORTED_TEXT_EXTENSIONS.has(ext)) {
     return null;
   }
 

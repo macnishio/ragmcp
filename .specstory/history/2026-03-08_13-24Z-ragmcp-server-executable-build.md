@@ -2,11 +2,11 @@
 
 <!-- cursor Session cea74446-fbb2-4f2e-892e-c8b672a6da46 (2026-03-08 13:24Z) -->
 
-# Building ragmcp-server-win32-x64.exe (2026-03-08 13:24Z)
+# Ragmcp server executable build (2026-03-08 13:24Z)
 
 _**User**_
 
-ragmcp-server-win32-x64.exe　これをビルドして
+ragmcp-server-win32-x64.exeをビルドして
 
 ---
 

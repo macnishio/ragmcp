@@ -2152,3 +2152,62 @@ _**User**_
 
 ---
 
+計装を1つ追加しました。サーバー側で folderPath を stat し、存在・isDirectory・エラーをログに残します。サンドボックス／マウントで「サーバーからそのパスが見えていない」かどうかを判定できます。
+状況の整理
+ingest_local_folder が常に「No readable files found」になる。
+upload_text_document は動いている（例: H29決算書.txt の約 4KB は成功）。
+推測: RAG MCP サーバーが別プロセスで動いており、渡しているフォルダパスにサーバーからアクセスできていない（サンドボックス／マウントの違い）。
+今回の変更
+サーバーが受け取った folderPath に対して stat を実行し、結果を debug-8d1b2e.log に書き出すようにしました。
+ok: true + isDirectory: true → サーバーからはフォルダが見えている。
+ok: false + error: "ENOENT" など → サーバーからはそのパスが見えていない（サンドボックス／マウントの可能性が高い）。
+ログが出る条件
+このリポジトリを ビルドしたうえで、そのビルドで RAG サーバーを起動していること。
+起動時のカレントディレクトリが c:\develop\ragmcp であること（ログが c:\develop\ragmcp\debug-8d1b2e.log に書かれるため）。
+次の一手
+原因を切り分ける: 計装入りのサーバーで ingest_local_folder を 1 回呼び、出た debug-8d1b2e.log を確認する。
+運用で進める: ingest_local_folder は使わず、upload_text_document で決算書など重要書類を少しずつ（例: 30KB 以下に分割）アップロードする。
+ログを取る場合は、下の再現手順で実行し、できた debug-8d1b2e.log の内容を共有してください。
+"C:\Users\Owner\OneDrive\決算関係書類\会計２０１７" この中のデータを　会計　RAGに入れて
+
+
+思考プロセス
+思考プロセス
+まず既存のRAGソースを確認し、フォルダの内容を見てみます。
+
+
+Listed accounting document sources and enumerated 2017 fiscal year files
+Listed accounting document sources and enumerated 2017 fiscal year files
+「会計」RAGソースは既に存在しています（現在ドキュメント2件）。ここに会計２０１７フォルダのデータを追加します。CSVファイルはテキストとして取り込めますが、PDFはバイナリなのでスキップされます。
+
+フォルダをインジェストします。
+
+
+Attempted to ingest accounting documents folder, found no readable files
+Attempted to ingest accounting documents folder, found no readable files
+
+Update todo list
+
+結果
+R
+
+
+ingest_local_folder
+
+結果
+The ingest found no readable files. This is likely because the files have Japanese characters in their names and the path encoding might be an issue, or the PDF files are being skipped as binary. Let me check what's happening more carefully.
+
+完了
+ファイルが見つからないようです。パスのエンコーディングを確認してみます。
+
+
+Listed accounting files in 2017 directory with permissions
+Listed accounting files in 2017 directory with permissions
+フォルダインジェストがファイルを認識できなかったようです。CSVファイルを個別にアップロードします。
+
+
+再度実行してみましたデバッグして
+
+
+---
+

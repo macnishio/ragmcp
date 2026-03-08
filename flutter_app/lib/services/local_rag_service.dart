@@ -273,37 +273,147 @@ class LocalRagService implements RagServiceInterface {
   Future<List<RagSearchResult>> searchSource(String sourceId, String query, {int limit = 8}) async {
     _requireSource(sourceId);
     final effectiveLimit = max(1, min(limit, 25));
-    final ftsQuery = toFtsQuery(query);
+    
+    // Prepare search variations for better Japanese text matching
+    final searchVariations = _prepareSearchVariations(query);
     final db = _ragDb.db;
 
     var rows = <Row>[];
 
-    // Tier 1: unicode61 FTS
-    if (ftsQuery.isNotEmpty) {
-      try {
-        rows = db.select('''
-          SELECT chunk_id, document_id, rel_path, heading, content,
-                 bm25(chunks_fts, 8.0, 5.0, 1.0) AS rank
-          FROM chunks_fts
-          WHERE chunks_fts MATCH ? AND source_id = ?
-          ORDER BY rank ASC
-          LIMIT ?
-        ''', [ftsQuery, sourceId, effectiveLimit]);
-      } catch (_) {
-        rows = [];
+    // Try each search variation until we get results
+    for (final variation in searchVariations) {
+      final ftsQuery = toFtsQuery(variation);
+      
+      if (ftsQuery.isNotEmpty) {
+        try {
+          rows = db.select('''
+            SELECT chunk_id, document_id, rel_path, heading, content,
+                   bm25(chunks_fts, 8.0, 5.0, 1.0) AS rank
+            FROM chunks_fts
+            WHERE chunks_fts MATCH ? AND source_id = ?
+            ORDER BY rank ASC
+            LIMIT ?
+          ''', [ftsQuery, sourceId, effectiveLimit]);
+          
+          if (rows.isNotEmpty) break; // Found results, stop trying variations
+        } catch (_) {
+          rows = [];
+        }
       }
     }
 
-    // Tier 2: trigram FTS (CJK fallback)
+    // Tier 2: trigram FTS (CJK fallback) with variations
     if (rows.isEmpty) {
-      final trigramQuery = query.trim();
-      if (trigramQuery.length >= 3) {
+      for (final variation in searchVariations) {
+        final trigramQuery = variation.trim();
+        if (trigramQuery.isEmpty) continue;
+        
         try {
-          final escaped = '"${trigramQuery.replaceAll('"', '""')}"';
           rows = db.select('''
             SELECT chunk_id, document_id, rel_path, heading, content,
                    bm25(chunks_trigram, 8.0, 5.0, 1.0) AS rank
             FROM chunks_trigram
+            WHERE chunks_trigram MATCH ? AND source_id = ?
+            ORDER BY rank ASC
+            LIMIT ?
+          ''', [trigramQuery, sourceId, effectiveLimit]);
+          
+          if (rows.isNotEmpty) break; // Found results, stop trying variations
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    // Tier 3: LIKE fallback with variations
+    if (rows.isEmpty) {
+      for (final variation in searchVariations) {
+        final likeQuery = '%$variation%';
+        try {
+          rows = db.select('''
+            SELECT chunk_id, document_id, rel_path, heading, content, 0 AS rank
+            FROM chunks
+            WHERE content LIKE ? AND source_id = ?
+            LIMIT ?
+          ''', [likeQuery, sourceId, effectiveLimit]);
+          
+          if (rows.isNotEmpty) break; // Found results, stop trying variations
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    return rows
+        .map((row) => RagSearchResult(
+          chunkId: row.readText('chunk_id'),
+          documentId: row.readText('document_id'),
+          relPath: row.readText('rel_path'),
+          heading: row.readText('heading'),
+          content: row.readText('content'),
+          score: row.readReal('rank'),
+        ))
+        .toList();
+  }
+
+  /// Prepare search query variations for better Japanese text matching
+  List<String> _prepareSearchVariations(String query) {
+    final variations = <String>{query};
+    
+    // Add hiragana to katakana and vice versa
+    variations.add(_hiraganaToKatakana(query));
+    variations.add(_katakanaToHiragana(query));
+    
+    // Add normalized version (NFKC)
+    variations.add(query.normalize(NormalizationForm.nfkc));
+    
+    // Add half-width to full-width conversions
+    variations.add(_halfWidthToFullWidth(query));
+    variations.add(_fullWidthToHalfWidth(query));
+    
+    // Remove common punctuation variations
+    variations.add(query.replaceAll(RegExp(r'[、。！？]'), ''));
+    
+    return variations.where((v) => v.isNotEmpty).toList();
+  }
+
+  /// Convert hiragana to katakana
+  String _hiraganaToKatakana(String text) {
+    return text.replaceAllMapped(RegExp(r'[\u3041-\u3096]'), (match) {
+      final code = match.group(0)!.codeUnitAt(0);
+      return String.fromCharCode(code + 0x60);
+    });
+  }
+
+  /// Convert katakana to hiragana  
+  String _katakanaToHiragana(String text) {
+    return text.replaceAllMapped(RegExp(r'[\u30A1-\u30F6]'), (match) {
+      final code = match.group(0)!.codeUnitAt(0);
+      return String.fromCharCode(code - 0x60);
+    });
+  }
+
+  /// Convert half-width to full-width characters
+  String _halfWidthToFullWidth(String text) {
+    return text.replaceAllMapped(RegExp(r'[\u0021-\u007E]'), (match) {
+      final code = match.group(0)!.codeUnitAt(0);
+      if (code >= 0x21 && code <= 0x7E) {
+        return String.fromCharCode(code + 0xFEE0);
+      }
+      return match.group(0)!;
+    });
+  }
+
+  /// Convert full-width to half-width characters
+  String _fullWidthToHalfWidth(String text) {
+    return text.replaceAllMapped(RegExp(r'[\uFF01-\uFF5E]'), (match) {
+      final code = match.group(0)!.codeUnitAt(0);
+      if (code >= 0xFF01 && code <= 0xFF5E) {
+        return String.fromCharCode(code - 0xFEE0);
+      }
+      return match.group(0)!;
+    });
+  }
             WHERE chunks_trigram MATCH ? AND source_id = ?
             ORDER BY rank ASC
             LIMIT ?
