@@ -7,19 +7,51 @@ import '../models/rag_source.dart';
 import '../models/sync_schedule.dart';
 import 'rag_service_interface.dart';
 
+/// RAGソースサービス - HTTPクライアント経由でRAGサーバーと通信
+/// 
+/// このサービスは以下の機能を提供します：
+/// - RAGソースの作成、読み取り、更新、削除（CRUD）
+/// - ファイルのアップロードと同期
+/// - 検索と質問応答
+/// - スケジュール管理
+/// 
+/// 使用例：
+/// ```dart
+/// final service = RagSourceService(baseUrl: 'http://127.0.0.1:3001');
+/// final sources = await service.fetchSources();
+/// ```
 class RagSourceService implements RagServiceInterface {
+  /// RAGサーバーのベースURL
   final String baseUrl;
+  
+  /// HTTPクライアントインスタンス
   final http.Client _client;
 
+  /// RAGソースサービスを初期化
+  /// 
+  /// [baseUrl] RAGサーバーのベースURL（例: 'http://127.0.0.1:3001'）
+  /// [client] カスタムHTTPクライアント（省略時はデフォルトクライアントを使用）
   RagSourceService({
     required this.baseUrl,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
+  /// 末尾のスラッシュを削除した正規化されたベースURLを取得
   String get _normalizedBaseUrl => baseUrl.replaceAll(RegExp(r"/+$"), "");
 
+  /// ベースURLとパスを結合して完全なURIを生成
+  /// 
+  /// [path] サーバーのエンドポイントパス（例: '/health'）
+  /// 完全なURIを返す
   Uri _uri(String path) => Uri.parse("$_normalizedBaseUrl$path");
 
+  /// サーバーのヘルスチェックを実行
+  /// 
+  /// サーバーが正常に動作しているかを確認します。
+  /// 10秒でタイムアウトし、タイムアウト時はHttpExceptionをスローします。
+  /// 
+  /// 戻り値: サーバー情報を含むMap
+  /// 例外: HttpException - 接続タイムアウトまたはHTTPエラー時
   @override
   Future<Map<String, dynamic>> fetchHealth() async {
     final response = await _client.get(_uri("/health")).timeout(
