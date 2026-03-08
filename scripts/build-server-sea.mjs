@@ -33,7 +33,7 @@ const getNodePath = () => {
       if (error) {
         reject(error);
       } else {
-        resolve(stdout.trim().split('\n')[0]);
+        resolve(stdout.trim().split(/\r?\n/)[0].trim());
       }
     });
   });
