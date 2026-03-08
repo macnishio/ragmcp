@@ -457,12 +457,12 @@ async function readFileBatch(
       }).length;
       if (sample.length > 0 && controlChars / sample.length > 0.05) continue;
 
-      // Generate safe filename (ASCII only for internal storage)
-      const originalName = relative(rootDir, fullPath);
+      // Preserve original filename including Unicode characters (e.g. Japanese)
+      // Only sanitize path separators and control characters
+      const originalName = relative(rootDir, fullPath).replace(/\\/g, "/");
       const safeName = originalName
-        .replace(/[^\w\-_.]/g, "_") // Replace non-word chars with underscore
-        .replace(/_{2,}/g, "_") // Replace multiple underscores with single
-        .toLowerCase();
+        .replace(/[\x00-\x1f\x7f]/g, "") // Remove control characters only
+        .replace(/\/{2,}/g, "/"); // Collapse multiple slashes
 
       results.push({
         name: safeName,
