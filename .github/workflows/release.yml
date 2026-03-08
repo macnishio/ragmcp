@@ -131,6 +131,10 @@ jobs:
       - run: npm run sea:build
       - name: Copy SEA binary for Flutter bundle
         run: copy build\sea\ragmcp-server-win32-x64.exe flutter_app\ragmcp-server-win32-x64.exe
+      - name: Setup Visual Studio Build Tools
+        uses: microsoft/setup-msbuild@v2
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -139,6 +143,8 @@ jobs:
         run: flutter pub get
       - working-directory: flutter_app
         run: flutter doctor -v
+      - working-directory: flutter_app
+        run: flutter config --enable-windows-desktop
       - working-directory: flutter_app
         run: flutter build windows --release --verbose
       - shell: pwsh
