@@ -16,6 +16,8 @@ coverage/
 *.swp
 *.swo
 *~
+.cursor/
+.cursorindexingignore
 
 # Local data
 .ragmcp-data/
@@ -45,6 +47,7 @@ flutter_new.zip
 flutter_install.zip
 test-*.mjs
 test-*.ps1
+test-files/
 
 # Binary executables
 bin/*.exe
@@ -57,3 +60,7 @@ bin/*-*-*
 *.rpm
 *.msi
 *.snap
+
+# Development documentation
+PROJECT_PLAN_*.md
+.specstory/
