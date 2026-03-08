@@ -20,6 +20,7 @@ class RagSourceService implements RagServiceInterface {
 
   Uri _uri(String path) => Uri.parse("$_normalizedBaseUrl$path");
 
+  @override
   Future<Map<String, dynamic>> fetchHealth() async {
     final response = await _client.get(_uri("/health")).timeout(
       const Duration(seconds: 10),
@@ -31,6 +32,7 @@ class RagSourceService implements RagServiceInterface {
     return Map<String, dynamic>.from(payload["data"] as Map);
   }
 
+  @override
   Future<List<RagSource>> fetchSources() async {
     final response = await _retryWithBackoff(
       () => _client.get(_uri("/rag/sources")),
@@ -55,7 +57,6 @@ class RagSourceService implements RagServiceInterface {
     int maxRetries = 3,
     Duration initialDelay = const Duration(milliseconds: 500),
   }) async {
-    http.Response? lastResponse;
     Exception? lastException;
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -80,6 +81,7 @@ class RagSourceService implements RagServiceInterface {
     throw lastException ?? HttpException("Request failed after $maxRetries retries");
   }
 
+  @override
   Future<RagSource> createSource(String name) async {
     final response = await _client.post(
       _uri("/rag/sources"),
@@ -95,6 +97,7 @@ class RagSourceService implements RagServiceInterface {
     return RagSource.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  @override
   Future<void> deleteSource(String sourceId) async {
     final response = await _client.delete(
       _uri("/rag/sources/$sourceId"),
@@ -105,11 +108,12 @@ class RagSourceService implements RagServiceInterface {
     _throwIfNeeded(response);
   }
 
-  Future<RagSource> renameSource(String sourceId, String name) async {
+  @override
+  Future<RagSource> renameSource(String sourceId, String newName) async {
     final response = await _client.patch(
       _uri("/rag/sources/$sourceId"),
       headers: _jsonHeaders,
-      body: json.encode({"name": name}),
+      body: json.encode({"name": newName}),
     ).timeout(
       const Duration(seconds: 30),
       onTimeout: () => throw HttpException("Connection timeout"),
@@ -120,6 +124,7 @@ class RagSourceService implements RagServiceInterface {
     return RagSource.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  @override
   Future<void> uploadFiles(
     String sourceId,
     List<File> files, {
@@ -147,9 +152,10 @@ class RagSourceService implements RagServiceInterface {
         // ファイル読み込みエラーをスキップ
         final fileName = file.uri.pathSegments.last;
         if (e.toString().contains('FileSystemException')) {
-          print('Skipping unsupported file ${fileName}: Google Drive仮想ファイルまたはアクセス不可ファイル');
+          // 開発時のみデバッグ出力
+          assert(false, 'Skipping unsupported file $fileName: Google Drive仮想ファイルまたはアクセス不可ファイル');
         } else {
-          print('Skipping file ${fileName}: $e');
+          assert(false, 'Skipping file $fileName: $e');
         }
         continue;
       }
@@ -166,6 +172,7 @@ class RagSourceService implements RagServiceInterface {
     _throwIfNeeded(response);
   }
 
+  @override
   Future<Map<String, dynamic>> syncSource(String sourceId) async {
     final response = await _client.post(
       _uri("/rag/sources/$sourceId/sync"),
@@ -181,6 +188,7 @@ class RagSourceService implements RagServiceInterface {
     return Map<String, dynamic>.from(payload["data"] as Map);
   }
 
+  @override
   Future<List<RagSearchResult>> searchSource(
     String sourceId,
     String query, {
@@ -212,6 +220,7 @@ class RagSourceService implements RagServiceInterface {
         .toList();
   }
 
+  @override
   Future<RagAnswer> answerSource(
     String sourceId,
     String question, {
@@ -234,6 +243,7 @@ class RagSourceService implements RagServiceInterface {
     return RagAnswer.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  @override
   Future<List<SyncSchedule>> listSchedules() async {
     final response = await _client.get(_uri("/rag/schedules")).timeout(
       const Duration(seconds: 10),
@@ -250,6 +260,7 @@ class RagSourceService implements RagServiceInterface {
         .toList();
   }
 
+  @override
   Future<SyncSchedule?> getSchedule(String sourceId) async {
     final response = await _client.get(
       _uri("/rag/sources/$sourceId/schedule"),
@@ -264,6 +275,7 @@ class RagSourceService implements RagServiceInterface {
     return SyncSchedule.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  @override
   Future<SyncSchedule> upsertSchedule(
     String sourceId,
     String frequency,
@@ -288,6 +300,7 @@ class RagSourceService implements RagServiceInterface {
     return SyncSchedule.fromJson(Map<String, dynamic>.from(payload["data"] as Map));
   }
 
+  @override
   Future<void> deleteScheduleForSource(String sourceId) async {
     final response = await _client.delete(
       _uri("/rag/sources/$sourceId/schedule"),
@@ -298,6 +311,7 @@ class RagSourceService implements RagServiceInterface {
     _throwIfNeeded(response);
   }
 
+  @override
   Future<Map<String, dynamic>> fetchDocument(String sourceId, String documentId) async {
     final response = await _client.get(
       _uri("/rag/sources/$sourceId/documents/$documentId"),
