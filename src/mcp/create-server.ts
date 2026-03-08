@@ -221,10 +221,10 @@ export function createMcpServer(ragService: RagService): McpServer {
         resolvedSourceId = (await ragService.createSource(sourceName)).sourceId;
       }
 
-      // Walk the folder and collect text files
-      const files = await collectLocalFiles(folderPath);
+      // Walk the folder to collect file paths (not contents) to avoid OOM
+      const filePaths = await collectLocalFilePaths(folderPath);
 
-      if (files.length === 0) {
+      if (filePaths.length === 0) {
         return toToolResult({
           sourceId: resolvedSourceId,
           message: "No readable files found in the specified folder.",
@@ -232,19 +232,22 @@ export function createMcpServer(ragService: RagService): McpServer {
         });
       }
 
-      // Upload in batches of 50
+      // Read and upload in batches of 50 to bound memory usage
       let totalStored = 0;
-      for (let i = 0; i < files.length; i += 50) {
-        const batch = files.slice(i, i + 50);
-        const result = await ragService.uploadFiles(resolvedSourceId, batch);
-        totalStored += result.filesStored;
+      for (let i = 0; i < filePaths.length; i += 50) {
+        const batchPaths = filePaths.slice(i, i + 50);
+        const batch = await readFileBatch(folderPath, batchPaths);
+        if (batch.length > 0) {
+          const result = await ragService.uploadFiles(resolvedSourceId, batch);
+          totalStored += result.filesStored;
+        }
       }
 
       const sync = await ragService.syncSource(resolvedSourceId);
 
       return toToolResult({
         sourceId: resolvedSourceId,
-        filesFound: files.length,
+        filesFound: filePaths.length,
         filesStored: totalStored,
         ...sync,
       });
@@ -307,11 +310,9 @@ export function createMcpServer(ragService: RagService): McpServer {
   return server;
 }
 
-async function collectLocalFiles(
-  rootDir: string,
-): Promise<Array<{ name: string; content: string; encoding: "utf8" }>> {
-  const results: Array<{ name: string; content: string; encoding: "utf8" }> =
-    [];
+// Phase 1: Collect file paths only (no content loaded) to avoid OOM
+async function collectLocalFilePaths(rootDir: string): Promise<string[]> {
+  const paths: string[] = [];
 
   async function walk(dir: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -329,32 +330,44 @@ async function collectLocalFiles(
       }
       if (!entry.isFile() || entry.name.startsWith(".")) continue;
 
-      const info = await stat(fullPath);
-      if (info.size > 10 * 1024 * 1024) continue; // skip >10MB
+      const info = await stat(fullPath).catch(() => null);
+      if (!info || info.size > 10 * 1024 * 1024) continue; // skip >10MB
 
-      try {
-        const content = await readFile(fullPath, "utf8");
-        // Skip binary-looking files (>5% control chars in first 512 bytes)
-        const sample = content.slice(0, 512);
-        const controlChars = [...sample].filter(
-          (c) => {
-            const code = c.charCodeAt(0);
-            return code < 32 && code !== 9 && code !== 10 && code !== 13;
-          },
-        ).length;
-        if (sample.length > 0 && controlChars / sample.length > 0.05) continue;
-
-        results.push({
-          name: relative(rootDir, fullPath),
-          content,
-          encoding: "utf8",
-        });
-      } catch {
-        // skip unreadable files
-      }
+      paths.push(fullPath);
     }
   }
 
   await walk(rootDir);
+  return paths;
+}
+
+// Phase 2: Read a batch of files into memory, filter binaries
+async function readFileBatch(
+  rootDir: string,
+  filePaths: string[],
+): Promise<Array<{ name: string; content: string; encoding: "utf8" }>> {
+  const results: Array<{ name: string; content: string; encoding: "utf8" }> = [];
+
+  for (const fullPath of filePaths) {
+    try {
+      const content = await readFile(fullPath, "utf8");
+      // Skip binary-looking files (>5% control chars in first 512 bytes)
+      const sample = content.slice(0, 512);
+      const controlChars = [...sample].filter((c) => {
+        const code = c.charCodeAt(0);
+        return code < 32 && code !== 9 && code !== 10 && code !== 13;
+      }).length;
+      if (sample.length > 0 && controlChars / sample.length > 0.05) continue;
+
+      results.push({
+        name: relative(rootDir, fullPath),
+        content,
+        encoding: "utf8",
+      });
+    } catch {
+      // skip unreadable files
+    }
+  }
+
   return results;
 }

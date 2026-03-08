@@ -75,6 +75,11 @@ export async function startHttpServer(): Promise<void> {
 }
 
 export async function startStdioServer(): Promise<void> {
+  // In stdio mode, stdout is reserved for MCP JSON-RPC messages.
+  // Redirect console.log to stderr so scheduler/debug output doesn't
+  // corrupt the protocol stream.
+  console.log = console.error;
+
   const ragService = new RagService();
   const scheduler = new SyncScheduler(ragService);
   scheduler.start();
