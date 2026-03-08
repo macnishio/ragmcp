@@ -67,10 +67,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - working-directory: flutter_app
         run: flutter pub get
       - working-directory: flutter_app
-        run: flutter build macos --release
+        run: flutter doctor -v
+      - working-directory: flutter_app
+        run: flutter build macos --release --verbose
       - name: Bundle SEA server into macOS app
         run: |
           APP_DIR="flutter_app/build/macos/Build/Products/Release/flutter_app.app/Contents/Resources"
@@ -101,10 +104,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - working-directory: flutter_app
         run: flutter pub get
       - working-directory: flutter_app
-        run: flutter build linux --release
+        run: flutter doctor -v
+      - working-directory: flutter_app
+        run: flutter build linux --release --verbose
       - working-directory: flutter_app
         run: tar -czf linux-release.tar.gz -C build/linux/x64/release/bundle .
       - uses: actions/upload-artifact@v4
@@ -128,10 +134,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - working-directory: flutter_app
         run: flutter pub get
       - working-directory: flutter_app
-        run: flutter build windows --release
+        run: flutter doctor -v
+      - working-directory: flutter_app
+        run: flutter build windows --release --verbose
       - shell: pwsh
         working-directory: flutter_app
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows-release.zip
